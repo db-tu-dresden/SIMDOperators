@@ -1,0 +1,3 @@
+[submodule "tools/tvlgen"]
+	path = tools/tvlgen
+	url = git@github.com:db-tu-dresden/TVLGen.git
