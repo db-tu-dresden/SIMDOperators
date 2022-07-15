@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include <column_based/filter.hpp>
 #include <column.hpp>
+#include <column_based/raw_data/filter.hpp>
 int main() {
   std::cout << "Hello, World!" << std::endl;
   using namespace tuddbs;

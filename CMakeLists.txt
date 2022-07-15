@@ -10,6 +10,7 @@ include_directories(${PROJECT_SOURCE_DIR}/dbops/operators/include)
 
 
 add_subdirectory(dbops/operators/src)
+add_subdirectory(dbops/operators/tests)
 
 
 

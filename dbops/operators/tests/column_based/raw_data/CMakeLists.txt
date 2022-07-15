@@ -1,0 +1,3 @@
+add_executable(FilterTest filter_test.cpp)
+target_compile_features(FilterTest PUBLIC cxx_std_20)
+target_link_libraries(FilterTest tvl)

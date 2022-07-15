@@ -33,6 +33,8 @@
 #include <cstdint>
 #include <concepts>
 
+#include <tvlintrin.hpp>
+
 namespace tuddbs{
 //alias
 using size_t = std::size_t;
