@@ -35,7 +35,8 @@
 #include <types.hpp>
 
 namespace tuddbs {
-template<template<class, class> class Comparator, DataSinkType ResultType, tvl::VectorProcessingStyle Vec, Arithmetic... ParamTypes, tvl::ImplementationDegreeOfFreedom Idof = tvl::workaround>
+using namespace tvl;
+template<template<class, class> class Comparator, DataSinkType ResultType, VectorProcessingStyle Vec, Arithmetic... ParamTypes, ImplementationDegreeOfFreedom Idof = tvl::workaround>
   auto select(
     DataSourceType auto const & p_input_container,
     std::tuple<ParamTypes...> p_predicates,

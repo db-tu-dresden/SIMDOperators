@@ -1,3 +1,3 @@
 add_executable(SimdOperators main.cpp)
-
+target_compile_features(SimdOperators PUBLIC cxx_std_20)
 target_link_libraries(SimdOperators tvl)

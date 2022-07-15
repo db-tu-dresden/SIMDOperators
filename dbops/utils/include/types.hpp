@@ -38,7 +38,7 @@ namespace tuddbs{
 using size_t = std::size_t;
 
 //traits
-template <typename T, typename Tuple>
+template <typename T, typename TupleType>
 struct all_of_specific_type;
 template <typename T, typename... Us>
 struct all_of_specific_type<T, std::tuple<Us...>> : std::conjunction<std::is_same<T, Us>...> {};
@@ -69,13 +69,14 @@ concept DataSinkType = DataProviderType<T> &&
 //Helper Structs
 //todo: This should be in the TVL!!!
 namespace details {
-template<tvl::VectorProcessingStyle Vec, Arithmetic... Ts, std::size_t... I>
+using namespace tvl;
+template<VectorProcessingStyle Vec, Arithmetic... Ts, std::size_t... I>
 auto broadcast_from_tuple_impl(std::tuple<Ts...> const & tup, std::index_sequence<I...>) {
   return std::make_tuple(tvl::set1<Vec>(std::get<I>(tup))...);
 }
 }
-
-template<tvl::VectorProcessingStyle Vec, Arithmetic... Ts>
+using namespace tvl;
+template<VectorProcessingStyle Vec, Arithmetic... Ts>
 constexpr auto broadcast_from_tuple(std::tuple<Ts...> tup) {
   static_assert(all_of_specific_type<typename Vec::base_type, std::tuple<Ts...>>::value, "Parameters has to be of same type as the specified Vector type.");
   return details::broadcast_from_tuple_impl<Vec>(tup, std::make_index_sequence<sizeof...(Ts)>{});
