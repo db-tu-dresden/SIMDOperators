@@ -107,33 +107,31 @@ namespace tuddbs{
     template<typename base_type>
     class Column {
       private:
-        /// The number of elements in this column.
-        size_t element_count;
+        /// The number of elements this column can store.
+        size_t length;
+        /// The number of elements this column currently stores.
+        size_t population_count = 0;
         /// The alignment of the data array (in bytes).
         size_t alignment;
-        /// The offset of the data array (in bytes).
-        size_t offset;
         /// The data array of this column.
         // std::shared_ptr<base_type[], std::default_delete<base_type[]>()> data;
         std::shared_ptr<base_type[]> data;
       public:
 
-        // ========== Constructors & Destructors ================================================== //
+        // ========== Constructors & Destructors ================================================================== //
 
         /// Default constructor.
         Column()
-            : element_count{0},
+            : length{0},
               alignment{0},
-              offset{0},
               data{nullptr}
         {}
 
         /// Constructor.
-        Column(size_t element_count, size_t alignment=sizeof(base_type))
-            : element_count{element_count},
+        Column(size_t length, size_t alignment=sizeof(base_type))
+            : length{length},
               alignment{alignment},
-              offset{0},
-              data{new (std::align_val_t(alignment)) base_type[element_count]}
+              data{new (std::align_val_t(alignment)) base_type[length]}
         {
           assert(alignment >= sizeof(base_type) && "Alignment must be at least the size of the base type.");
           assert(alignment % sizeof(base_type) == 0 && "Alignment must be a multiple of the size of the base type.");
@@ -141,29 +139,29 @@ namespace tuddbs{
 
         /// Copy constructor.
         Column(const Column & other)
-            : element_count{other.element_count},
+            : length{other.length},
+              population_count{other.population_count},
               alignment{other.alignment},
-              offset{other.offset},
-              data{new (std::align_val_t(alignment)) base_type[element_count]} {
-          std::memcpy(data.get(), other.data.get(), element_count*sizeof(base_type));
+              data{new (std::align_val_t(alignment)) base_type[length]} {
+          std::memcpy(data.get(), other.data.get(), length*sizeof(base_type));
         }
 
         /// Move constructor.
         Column(Column && other)
-            : element_count{std::exchange(other.element_count, 0)},
-              alignment{std::exchange(other.alignment, 0)},
-              offset{std::exchange(other.offset, 0)},
-              data{std::exchange(other.data, nullptr)}
+            : length{           std::exchange(other.length, 0)},
+              population_count{ std::exchange(other.population_count, 0)},
+              alignment{        std::exchange(other.alignment, 0)},
+              data{             std::exchange(other.data, nullptr)}
         {}
 
         /// Copy assignment operator.
         Column & operator=(const Column & other) {
           if(this != &other) {
-            element_count = other.element_count;
+            length = other.length;
+            population_count = other.population_count;
             alignment = other.alignment;
-            offset = other.offset;
-            data = std::shared_ptr<base_type[]>(new (std::align_val_t(alignment)) base_type[element_count]);
-            std::memcpy(data.get(), other.data.get(), element_count*sizeof(base_type));
+            data = std::shared_ptr<base_type[]>(new (std::align_val_t(alignment)) base_type[length]);
+            std::memcpy(data.get(), other.data.get(), length*sizeof(base_type));
           }
           return *this;
         }
@@ -171,10 +169,10 @@ namespace tuddbs{
         /// Move assignment operator.
         Column & operator=(Column && other) {
           if(this != &other) {
-            element_count = std::exchange(other.element_count, 0);
-            alignment = std::exchange(other.alignment, 0);
-            offset = std::exchange(other.offset, 0);
-            data = std::exchange(other.data, nullptr);
+            length           = std::exchange(other.length, 0);
+            population_count = std::exchange(other.population_count, 0);
+            alignment        = std::exchange(other.alignment, 0);
+            data             = std::exchange(other.data, nullptr);
           }
           return *this;
         }
@@ -192,7 +190,7 @@ namespace tuddbs{
         // static create<
 
 
-        // ========== Getter ======================================================================= //
+        // ========== Getter ======================================================================================= //
 
         std::shared_ptr<const base_type[]> getData() const {
           return data;
@@ -201,37 +199,79 @@ namespace tuddbs{
         const base_type * getRawDataPtr() const {
           return data.get();
         }
+
+        base_type * getRawDataPtr() {
+          return data.get();
+        }
         
         std::shared_ptr<base_type[]> getData() {
           return data;
         }
 
-        size_t getElementCount() const {
-          return element_count;
+        size_t getLength() const {
+          return length;
+        }
+
+        size_t getPopulationCount() const {
+          return population_count;
         }
 
         size_t getAlignment() const {
           return alignment;
         }
 
+        size_t getMemoryFootprint() const {
+          return length * sizeof(base_type) + sizeof(Column<base_type>);
+        }
+
+
+        // ========== Setter ======================================================================================= //
+        void setPopulationCount(size_t population_count) {
+          this->population_count = population_count;
+        }
+
         
-        // ========== Accessors ==================================================================== //
+        // ========== Accessors ==================================================================================== //
 
         /// Returns a const reference to the element at the given index.
         const base_type & operator[](size_t index) const {
-          return data[index + offset];
+          return data[index];
         }     
 
+        /// Returns a reference to the element at the given index. (manipulation possible)
+        base_type & operator[](size_t index) {
+          return data[index];
+        }
 
 
 
-
+        // ========== Chunking ===================================================================================== //
         /// Returns a column pointing into original column with the given offset (start_index) and length.
-        std::shared_ptr<Column<base_type>> chunk(size_t start_index, size_t length){
-          std::shared_ptr<Column<base_type>> chunk(new Column<base_type>());
-          chunk->element_count = length;
+        std::shared_ptr<Column<base_type>> chunk(size_t start_index, size_t length = -1){
+          /// Create blank column without dedicated memory
+          auto chunk = Column<base_type>::create();
+          /// Check if end of column is in range
+          chunk->population_count = std::min(length, this->population_count - start_index);
 
           chunk->alignment = alignment;
+          /// Create new shared_ptr with offset. This pointer shares the same ref counter as the original one.
+          /// So even if the original pointer is destroyed, the data is still valid until all references are gone.
+          chunk->data = std::shared_ptr<base_type[]>(this->data, this->data.get() + start_index);
+
+          return chunk;
+        }
+
+        
+        /// Returns a column pointing into original column with the given offset (start_index) and length.
+        std::shared_ptr<const Column<base_type>> chunk(size_t start_index, size_t length = -1) const {
+          /// Create blank column without dedicated memory
+          auto chunk = Column<base_type>::create();
+          /// Check if end of column is in range
+          chunk->element_count = std::min(length, this->length - start_index);
+
+          chunk->alignment = alignment;
+          /// Create new shared_ptr with offset. This pointer shares the same ref counter as the original one.
+          /// So even if the original pointer is destroyed, the data is still valid until all references are gone.
           chunk->data = std::shared_ptr<base_type[]>(this->data, this->data.get() + start_index);
 
           return chunk;
