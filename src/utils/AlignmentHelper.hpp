@@ -15,7 +15,9 @@ namespace tuddbs{
         private:
             const void *ptr;
 
+            /// @brief The alignment to check for in bytes.
             size_t alignment;
+            /// @brief The offset of the pointer to desired alignment in bytes.
             size_t offset;
 
         public:
@@ -24,16 +26,41 @@ namespace tuddbs{
                 this->offset = reinterpret_cast<size_t>(ptr) % alignment;
             }
 
+            /**
+             * @brief Returns true if the pointer is aligned to the desired alignment.
+             * 
+             * @return true 
+             * @return false 
+             */
             bool isAligned() const {
                 return offset == 0;
             }
 
+            /**
+             * @brief Returns the offset of the pointer to the desired alignment in bytes.
+             * 
+             * @return size_t 
+             */
             size_t getOffset() const {
                 return offset;
             }
 
+            /**
+             * @brief Returns the offset of the pointer to the desired alignment in elements.
+             * 
+             * @return size_t 
+             */
             size_t getElementOffset() const {
                 return offset / ProcessingStyle::vector_size_B();
+            }
+
+            /**
+             * @brief Returns the number of elements until the pointer is aligned to the desired alignment.
+             * 
+             * @return size_t 
+             */
+            size_t getElementsUntilAlignment() const {
+                return ((alignment - offset) % alignment) / sizeof(typename ProcessingStyle::base_type);
             }
 
             size_t getAlignment() const {
