@@ -1,12 +1,12 @@
 #ifndef SRC_OPERATORS_SELECT_HPP
 #define SRC_OPERATORS_SELECT_HPP
 
-#include "utils/preprocessor.h"
-#include "utils/AlignmentHelper.hpp"
-
 #include <iostream>
 
-#include <datastructure/column.hpp>
+#include "SIMDOperators/utils/preprocessor.h"
+#include "SIMDOperators/utils/AlignmentHelper.hpp"
+#include <SIMDOperators/datastructure/column.hpp>
+
 
 using namespace std;
 

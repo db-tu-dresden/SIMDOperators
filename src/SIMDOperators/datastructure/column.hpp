@@ -32,9 +32,10 @@
 #include <new>
 #include <utility>
 #include <cstring>
-#include <utils/types.hpp>
 #include <memory>
 #include <cassert>
+
+#include <SIMDOperators/utils/types.hpp>
 
 namespace tuddbs{
     template<Arithmetic T>
