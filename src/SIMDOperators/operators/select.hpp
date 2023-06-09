@@ -28,6 +28,7 @@ namespace tuddbs{
 
             using reg_t = typename batchps::register_type;
             using mask_t = typename batchps::mask_type;
+            using imask_t = typename batchps::imask_type;
 
             MSV_CXX_ATTRIBUTE_FORCE_INLINE
             static size_t apply(base_type * result, const base_type * column, base_type predicate, const size_t& vector_count, size_t start_index = 0){
@@ -56,10 +57,11 @@ namespace tuddbs{
                     reg_t data_vector = tsl::load<batchps>(input_data);
                     /// compare data with predicate, resulting in a bit mask
                     mask_t mask = CompareOperator<batchps, tsl::workaround>::apply(data_vector, predicate_vector);
+                    imask_t imask = tsl::to_integral<batchps>(mask);
                     /// count the number of set bits in the mask
-                    size_t count = tsl::mask_population_count<batchps>(mask);
+                    size_t count = tsl::mask_population_count<batchps>(imask);
                     /// store the positions for matched elements
-                    tsl::compress_store<batchps>(mask, output_data, position_vector);
+                    tsl::compress_store<batchps>(imask, output_data, position_vector);
                     /// increment the position vector
                     position_vector = tsl::add<batchps>(position_vector, increment_vector);
                     /// increment the output data pointer
