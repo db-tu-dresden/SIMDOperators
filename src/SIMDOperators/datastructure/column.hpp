@@ -139,7 +139,7 @@ namespace tuddbs{
         }
 
         /// Constructor with existing data.
-        Column(size_t length, std::shared_ptr<base_type[]>& existing_data, size_t alignment=sizeof(base_type))
+        Column(size_t length, std::shared_ptr<base_type[]> existing_data, size_t alignment=sizeof(base_type))
             : length{length},
               population_count(length),
               alignment{alignment},
