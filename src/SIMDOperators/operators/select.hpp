@@ -7,9 +7,6 @@
 #include "SIMDOperators/utils/AlignmentHelper.hpp"
 #include <SIMDOperators/datastructure/column.hpp>
 
-
-using namespace std;
-
 namespace tuddbs{
     template<typename ProcessingStyle, template < typename ... > typename CompareOperator >
     class select {
@@ -92,7 +89,7 @@ namespace tuddbs{
 
             /// Scalar preprocessing
             size_t pos_count = batch<scalar>::apply( result_ptr, column_ptr, predicate, alignment.getElementsUntilAlignment(), 0 );
-            cout << "Scalar preprocessing: " << alignment.getElementsUntilAlignment() << " // " << pos_count << endl;
+            std::cout << "Scalar preprocessing: " << alignment.getElementsUntilAlignment() << " // " << pos_count << std::endl;
 
             /// Vector processing
             size_t vector_count = (column.get()->getPopulationCount() - alignment.getElementsUntilAlignment()) / ps::vector_element_count();
@@ -103,7 +100,7 @@ namespace tuddbs{
                 vector_count,
                 alignment.getElementsUntilAlignment()
             );
-            cout << "Vector processing: " << vector_count << " // " << pos_count << endl;
+            std::cout << "Vector processing: " << vector_count << " // " << pos_count << std::endl;
             /// Scalar postprocessing
             pos_count += batch<scalar>::apply( 
                 result_ptr + pos_count, 
@@ -112,7 +109,7 @@ namespace tuddbs{
                 column.get()->getPopulationCount() - alignment.getElementsUntilAlignment() - vector_count * ps::vector_element_count(),
                 alignment.getElementsUntilAlignment() + vector_count * ps::vector_element_count() 
             );
-            cout << "Scalar postprocessing: " << column.get()->getPopulationCount() - alignment.getElementsUntilAlignment() - vector_count * ps::vector_element_count() << " // " << pos_count << endl;
+            std::cout << "Scalar postprocessing: " << column.get()->getPopulationCount() - alignment.getElementsUntilAlignment() - vector_count * ps::vector_element_count() << " // " << pos_count << std::endl;
 
             result.get()->setPopulationCount(pos_count);
 
