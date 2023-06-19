@@ -2,8 +2,6 @@
 
 #include "SIMDOperators/utils/preprocessor.h"
 
-using namespace std;
-
 template<typename ProcessingStyle>
 class project {
     using ps = ProcessingStyle;
@@ -19,7 +17,7 @@ class project {
 
     MSV_CXX_ATTRIBUTE_FORCE_INLINE
     static void apply(){
-        cout << "Project test" << endl;
+        std::cout << "Project test" << std::endl;
     }
 
 
