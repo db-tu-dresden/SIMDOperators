@@ -138,6 +138,15 @@ namespace tuddbs{
           assert(alignment % sizeof(base_type) == 0 && "Alignment must be a multiple of the size of the base type.");
         }
 
+        /// Constructor with existing data.
+        Column(size_t length, std::shared_ptr<base_type[]>& existing_data, size_t alignment=sizeof(base_type))
+            : length{length},
+              alignment{alignment},
+              data{existing_data}
+        {
+          //TODO: Maybe check alignment of ptr here?
+        }
+
         /// Copy constructor.
         Column(const Column & other)
             : length{other.length},
