@@ -1,3 +1,4 @@
 [submodule "tools/tslgen"]
 	path = tools/tslgen
-	url = https://github.com/db-tu-dresden/TVLGen
+	url = https://github.com/tomschw/TSL
+	branch = primitives_scalar_daphne
