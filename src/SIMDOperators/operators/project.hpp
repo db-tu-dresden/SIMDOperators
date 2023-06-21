@@ -74,9 +74,7 @@ namespace tuddbs{
             typename AlignmentHelper<ps>::Alignment alignment = AlignmentHelper<ps>::getAlignment(positions.get()->getRawDataPtr());
 
             std::shared_ptr<Column<base_type>> result = Column<base_type>::create(positions.get()->getPopulationCount(), ps::vector_size_B());
-            size_t x = result.get()->getPopulationCount();
-            size_t y = result.get()->getLength();
-
+            
             auto result_ptr = result.get()->getRawDataPtr();
             auto column_ptr = column.get()->getRawDataPtr();
             auto positions_ptr = positions.get()->getRawDataPtr();
