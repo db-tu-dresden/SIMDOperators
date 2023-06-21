@@ -17,7 +17,7 @@ add_executable(simpleTest simpleTest.cpp)
 target_include_directories(simpleTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
 target_link_libraries(simpleTest tsl SIMDOperators)
 
-add_executable(operatorTest operatorTest.cpp)
+add_executable(operatorTest operatorTest.cpp projectTest.cpp)
 target_include_directories(operatorTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
 target_link_libraries(operatorTest tsl SIMDOperators Catch2::Catch2WithMain)
 
