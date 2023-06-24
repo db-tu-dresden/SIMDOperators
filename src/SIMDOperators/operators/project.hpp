@@ -15,8 +15,8 @@ namespace tuddbs{
         using scalar = tsl::simd<base_type, tsl::scalar>;
 
         using col_t = Column<base_type>;
-        using col_ptr = std::shared_ptr<col_t>;
-        using const_col_ptr = std::shared_ptr<const col_t>;
+        using col_ptr = col_t *;
+        using const_col_ptr = const col_t *;
 
         template<typename batchps>
         class batch {
@@ -71,20 +71,20 @@ namespace tuddbs{
         MSV_CXX_ATTRIBUTE_FORCE_INLINE
         static col_ptr apply(const_col_ptr column, const_col_ptr positions){
             /// Get the alignment of the positions column
-            typename AlignmentHelper<ps>::Alignment alignment = AlignmentHelper<ps>::getAlignment(positions.get()->getRawDataPtr());
+            typename AlignmentHelper<ps>::Alignment alignment = AlignmentHelper<ps>::getAlignment(positions->getRawDataPtr());
 
-            std::shared_ptr<Column<base_type>> result = Column<base_type>::create(positions.get()->getPopulationCount(), ps::vector_size_B());
-            
-            auto result_ptr = result.get()->getRawDataPtr();
-            auto column_ptr = column.get()->getRawDataPtr();
-            auto positions_ptr = positions.get()->getRawDataPtr();
+            Column<base_type> * result = new Column<base_type>(positions->getPopulationCount(), ps::vector_size_B());
+
+            auto result_ptr = result->getRawDataPtr();
+            auto column_ptr = column->getRawDataPtr();
+            auto positions_ptr = positions->getRawDataPtr();
 
             /// Scalar preprocessing
             size_t pos_count = batch<scalar>::apply( result_ptr, column_ptr, positions_ptr, alignment.getElementsUntilAlignment());
             std::cout << "Scalar preprocessing: " << alignment.getElementsUntilAlignment() << " // " << pos_count << std::endl;
 
             /// Vector processing
-            size_t vector_count = (positions.get()->getPopulationCount() - alignment.getElementsUntilAlignment()) / ps::vector_element_count();
+            size_t vector_count = (positions->getPopulationCount() - alignment.getElementsUntilAlignment()) / ps::vector_element_count();
             pos_count += batch<ps>::apply( 
                 (result_ptr + pos_count), 
                 column_ptr, 
@@ -98,12 +98,12 @@ namespace tuddbs{
                 result_ptr + pos_count, 
                 column_ptr, 
                 (positions_ptr + alignment.getElementsUntilAlignment() + vector_count * ps::vector_element_count()), 
-                positions.get()->getPopulationCount() - alignment.getElementsUntilAlignment() - vector_count * ps::vector_element_count()//,
+                positions->getPopulationCount() - alignment.getElementsUntilAlignment() - vector_count * ps::vector_element_count()//,
                 //alignment.getElementsUntilAlignment() + vector_count * ps::vector_element_count() 
             );
-            std::cout << "Scalar postprocessing: " << column.get()->getPopulationCount() - alignment.getElementsUntilAlignment() - vector_count * ps::vector_element_count() << " // " << pos_count << std::endl;
+            std::cout << "Scalar postprocessing: " << column->getPopulationCount() - alignment.getElementsUntilAlignment() - vector_count * ps::vector_element_count() << " // " << pos_count << std::endl;
 
-            result.get()->setPopulationCount(pos_count);
+            result->setPopulationCount(pos_count);
 
             return result;
         }
