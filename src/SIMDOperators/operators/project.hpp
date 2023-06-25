@@ -44,7 +44,7 @@ namespace tuddbs{
 
                 size_t overall_count = 0;
 
-                for (size_t i = 0; i < vector_count; ++i) {
+                for (size_t i = 0; i < vector_count; i++) {
                     /// load data into vector register
                     reg_t data_vector = tsl::load<batchps>(position_data);
                     /// gather the corresponding data
