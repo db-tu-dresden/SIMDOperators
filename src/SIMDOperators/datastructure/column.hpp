@@ -183,8 +183,8 @@ namespace tuddbs{
 
 
         template<typename ... TArgs>
-        static std::shared_ptr<Column<base_type>> create(TArgs ... args) {
-          return std::make_shared<Column<base_type>>(args...);
+        static Column<base_type> * create(TArgs ... args) {
+          return new Column<base_type>(args...);
         }
 
         // template<typename ... TArgs>
@@ -248,7 +248,7 @@ namespace tuddbs{
 
         // ========== Chunking ===================================================================================== //
         /// Returns a column pointing into original column with the given offset (start_index) and length.
-        std::shared_ptr<Column<base_type>> chunk(size_t start_index, size_t length = -1){
+        Column<base_type> * chunk(size_t start_index, size_t length = -1){
           /// Create blank column without dedicated memory
           auto chunk = Column<base_type>::create();
           /// Check if end of column is in range
@@ -264,11 +264,11 @@ namespace tuddbs{
 
         
         /// Returns a column pointing into original column with the given offset (start_index) and length.
-        std::shared_ptr<const Column<base_type>> chunk(size_t start_index, size_t length = -1) const {
+        const Column<base_type> * chunk(size_t start_index, size_t length = -1) const {
           /// Create blank column without dedicated memory
           auto chunk = Column<base_type>::create();
           /// Check if end of column is in range
-          chunk->element_count = std::min(length, this->length - start_index);
+          chunk->population_count = std::min(length, this->length - start_index);
 
           chunk->alignment = alignment;
           /// Create new shared_ptr with offset. This pointer shares the same ref counter as the original one.
