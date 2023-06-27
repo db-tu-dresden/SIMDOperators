@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "SIMDOperators/utils/preprocessor.h"
+#include <SIMDOperators/utils/preprocessor.h>
 
 template<typename ProcessingStyle>
 class project {

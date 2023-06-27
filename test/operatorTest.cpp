@@ -1,6 +1,6 @@
 #include <catch2/catch_all.hpp>
 
-#include "SIMDOperators/utils/AlignmentHelper.hpp"
+#include <SIMDOperators/utils/AlignmentHelper.hpp>
 #include <SIMDOperators/SIMDOperators.h>
 #include <iostream>
 #include <tslintrin.hpp>
