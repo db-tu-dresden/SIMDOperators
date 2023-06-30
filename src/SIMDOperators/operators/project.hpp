@@ -79,7 +79,7 @@ namespace tuddbs{
                 alignment_elements = alignment.getElementsUntilAlignment();
             }
 
-            Column<base_type> * result = new Column<base_type>(positions->getPopulationCount(), ps::vector_size_B());
+            Column<base_type> * result = Column<base_type>::create(positions->getPopulationCount(), ps::vector_size_B());
 
             auto result_ptr = result->getRawDataPtr();
             auto column_ptr = column->getRawDataPtr();
