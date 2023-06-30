@@ -3,9 +3,9 @@
 
 #include <iostream>
 
-#include "SIMDOperators/utils/preprocessor.h"
-#include "SIMDOperators/utils/AlignmentHelper.hpp"
-#include <SIMDOperators/datastructure/column.hpp>
+#include <SIMDOperators/utils/preprocessor.h>
+#include <SIMDOperators/utils/AlignmentHelper.hpp>
+#include <SIMDOperators/datastructures/column.hpp>
 
 namespace tuddbs{
     template<typename ProcessingStyle>

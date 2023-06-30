@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include <SIMDOperators/SIMDOperators.h>
-#include "SIMDOperators/utils/AlignmentHelper.hpp"
+#include <SIMDOperators/utils/AlignmentHelper.hpp>
 #include <tslintrin.hpp>
 
 int main(){
