@@ -10,6 +10,8 @@ create_tsl(
     DESTINATION ${PROJECT_SOURCE_DIR}/libs/tsl
 )
 
+include_directories(${TSL_INCLUDE_DIRECTORY})
+
 # /// create the SIMDOperators library
 add_subdirectory(src)
 
