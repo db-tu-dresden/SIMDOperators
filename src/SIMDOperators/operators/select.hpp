@@ -1,5 +1,23 @@
-#ifndef SRC_OPERATORS_SELECT_HPP
-#define SRC_OPERATORS_SELECT_HPP
+// ------------------------------------------------------------------- //
+/*
+   This file is part of the SimdOperators Project.
+   Copyright (c) 2022 SimdOperators Team.
+   
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, version 3.
+ 
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.
+ 
+   You should have received a copy of the GNU General Public License 
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// ------------------------------------------------------------------- //
+#ifndef SRC_SIMDOPERATORS_OPERATORS_SELECT_HPP
+#define SRC_SIMDOPERATORS_OPERATORS_SELECT_HPP
 
 #include <iostream>
 
@@ -27,7 +45,7 @@ namespace tuddbs{
             using mask_t = typename batchps::mask_type;
             using imask_t = typename batchps::imask_type;
 
-            MSV_CXX_ATTRIBUTE_FORCE_INLINE
+            DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
             static size_t apply(base_type * result, const base_type * column, base_type predicate, const size_t& vector_count, size_t start_index = 0){
                 if(vector_count == 0){
                     return 0;
@@ -74,7 +92,7 @@ namespace tuddbs{
 
     public:
 
-        MSV_CXX_ATTRIBUTE_FORCE_INLINE
+        DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
         static col_ptr apply(const_col_ptr column, const base_type& predicate){
             
             /// Get the alignment of the column
@@ -129,4 +147,4 @@ namespace tuddbs{
 
 
 
-#endif //SRC_OPERATORS_SELECT_HPP
+#endif //SRC_SIMDOPERATORS_OPERATORS_SELECT_HPP
