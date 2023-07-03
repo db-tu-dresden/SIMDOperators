@@ -20,7 +20,7 @@ namespace tuddbs{
     public:
 
         template<typename... Args> 
-        MSV_CXX_ATTRIBUTE_FORCE_INLINE
+        DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
         static col_ptr apply(const_col_ptr column, Args... positions){
             const_col_ptr current_pos = nullptr;
             for (const_col_ptr pos : {positions...}) {

@@ -1,6 +1,23 @@
-#ifndef SRC_OPERATORS_PROJECT_HPP
-#define SRC_OPERATORS_PROJECT_HPP
-
+// ------------------------------------------------------------------- //
+/*
+   This file is part of the SimdOperators Project.
+   Copyright (c) 2022 SimdOperators Team.
+   
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, version 3.
+ 
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.
+ 
+   You should have received a copy of the GNU General Public License 
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// ------------------------------------------------------------------- //
+#ifndef SRC_SIMDOPERATORS_OPERATORS_PROJECT_HPP
+#define SRC_SIMDOPERATORS_OPERATORS_PROJECT_HPP
 #include <iostream>
 
 #include <SIMDOperators/utils/preprocessor.h>
@@ -29,7 +46,7 @@ namespace tuddbs{
             static const std::size_t VectorSizeInBits = batchps::target_extension::template types<base_type>::default_size_in_bits::value;
             using offset_register_type = std::array<typename batchps::offset_base_register_type, sizeof(offset_t)/sizeof(base_type)>;
 
-            MSV_CXX_ATTRIBUTE_FORCE_INLINE
+            DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
             static size_t apply(base_type * result, const base_type * column, const base_type * positions, const size_t& vector_count){
                 /// output data pointer
                 // base_type * output_data = result.get()->getRawDataPtr();
@@ -68,7 +85,7 @@ namespace tuddbs{
 
     public:
 
-        MSV_CXX_ATTRIBUTE_FORCE_INLINE
+        DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
         static col_ptr apply(const_col_ptr column, const_col_ptr positions){
             /// Get the alignment of the positions column
             typename AlignmentHelper<ps>::Alignment alignment = AlignmentHelper<ps>::getAlignment(positions->getRawDataPtr());
@@ -117,6 +134,6 @@ namespace tuddbs{
 
     };
 
-}; //namespace tuddbs
+}; // namespace tuddbs
 
-#endif //SRC_OPERATORS_PROJECT_HPP
+#endif //SRC_SIMDOPERATORS_OPERATORS_PROJECT_HPP

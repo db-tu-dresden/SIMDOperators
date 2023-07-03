@@ -1,98 +1,99 @@
-/**********************************************************************************************
- * Copyright (C) 2019 by MorphStore-Team                                                      *
- *                                                                                            *
- * This file is part of MorphStore - a compression aware vectorized column store.             *
- *                                                                                            *
- * This program is free software: you can redistribute it and/or modify it under the          *
- * terms of the GNU General Public License as published by the Free Software Foundation,      *
- * either version 3 of the License, or (at your option) any later version.                    *
- *                                                                                            *
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;  *
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  *
- * See the GNU General Public License for more details.                                       *
- *                                                                                            *
- * You should have received a copy of the GNU General Public License along with this program. *
- * If not, see <http://www.gnu.org/licenses/>.                                                *
- **********************************************************************************************/
-
+// ------------------------------------------------------------------- //
+/*
+   This file is part of the SimdOperators Project.
+   Copyright (c) 2022 by the SimdOperators Team.
+   
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, version 3.
+ 
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.
+ 
+   You should have received a copy of the GNU General Public License 
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// ------------------------------------------------------------------- //
 /**
  * @file preprocessor.h
  * @brief Brief description
  * @todo TODOS?
  */
 
-#ifndef MORPHSTORE_CORE_UTILS_PREPROCESSOR_H
-#define MORPHSTORE_CORE_UTILS_PREPROCESSOR_H
+#ifndef SRC_SIMDOPERATORS_UTILS_PREPROCESSOR_H
+#define SRC_SIMDOPERATORS_UTILS_PREPROCESSOR_H
 
-#ifndef MSV_CXX_ATTRIBUTE_PPUNUSED
+#ifndef DBTUD_CXX_ATTRIBUTE_PPUNUSED
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_PPUNUSED __attribute__((unused))
+#     define DBTUD_CXX_ATTRIBUTE_PPUNUSED __attribute__((unused))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_MALLOC
+#ifndef DBTUD_CXX_ATTRIBUTE_MALLOC
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_MALLOC __attribute__((malloc))
+#     define DBTUD_CXX_ATTRIBUTE_MALLOC __attribute__((malloc))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_ALLOC_SIZE
+#ifndef DBTUD_CXX_ATTRIBUTE_ALLOC_SIZE
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_ALLOC_SIZE(X) __attribute__((alloc_size(X)))
+#     define DBTUD_CXX_ATTRIBUTE_ALLOC_SIZE(X) __attribute__((alloc_size(X)))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_FORCE_INLINE
+#ifndef DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_FORCE_INLINE inline __attribute__((always_inline))
+#     define DBTUD_CXX_ATTRIBUTE_FORCE_INLINE inline __attribute__((always_inline))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_INLINE
+#ifndef DBTUD_CXX_ATTRIBUTE_INLINE
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_INLINE inline
+#     define DBTUD_CXX_ATTRIBUTE_INLINE inline
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_COLD
+#ifndef DBTUD_CXX_ATTRIBUTE_COLD
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_COLD __attribute__((cold))
+#     define DBTUD_CXX_ATTRIBUTE_COLD __attribute__((cold))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_HOT
+#ifndef DBTUD_CXX_ATTRIBUTE_HOT
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_HOT __attribute__((hot))
+#     define DBTUD_CXX_ATTRIBUTE_HOT __attribute__((hot))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_PURE
+#ifndef DBTUD_CXX_ATTRIBUTE_PURE
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_PURE __attribute__((pure))
+#     define DBTUD_CXX_ATTRIBUTE_PURE __attribute__((pure))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_CONST
+#ifndef DBTUD_CXX_ATTRIBUTE_CONST
 #  if defined(__clang__) || defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_CONST __attribute__((const))
+#     define DBTUD_CXX_ATTRIBUTE_CONST __attribute__((const))
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_LIKELY
+#ifndef DBTUD_CXX_ATTRIBUTE_LIKELY
 #  if defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_LIKELY(x) __builtin_expect(!!(x), 1)
+#     define DBTUD_CXX_ATTRIBUTE_LIKELY(x) __builtin_expect(!!(x), 1)
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_UNLIKELY
+#ifndef DBTUD_CXX_ATTRIBUTE_UNLIKELY
 #  if defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#     define DBTUD_CXX_ATTRIBUTE_UNLIKELY(x) __builtin_expect(!!(x), 0)
 #  endif
 #endif
 
-#ifndef MSV_CXX_ATTRIBUTE_ALIGNED
+#ifndef DBTUD_CXX_ATTRIBUTE_ALIGNED
 #  if defined(__GNUC__)
-#     define MSV_CXX_ATTRIBUTE_ALIGNED(x) __attribute__((aligned(x)))
+#     define DBTUD_CXX_ATTRIBUTE_ALIGNED(x) __attribute__((aligned(x)))
 #  endif
 #endif
 
@@ -133,4 +134,4 @@
  */
 #define STR_EVAL_MACROS(...) #__VA_ARGS__
 
-#endif //MORPHSTORE_CORE_UTILS_PREPROCESSOR_H
+#endif //SRC_SIMDOPERATORS_UTILS_PREPROCESSOR_H
