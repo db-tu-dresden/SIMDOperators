@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------- //
 /*
    This file is part of the SimdOperators Project.
-   Copyright (c) 2022 Johannes Pietrzyk.
+   Copyright (c) 2022 SimdOperators Team.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -26,8 +26,8 @@
  * @details A detailed description.
  */
 
-#ifndef SIMDOPERATORS_DBOPS_UTILS_INCLUDE_COLUMN_HPP
-#define SIMDOPERATORS_DBOPS_UTILS_INCLUDE_COLUMN_HPP
+#ifndef SRC_SIMDOPERATORS_UTILS_TYPES_HPP
+#define SRC_SIMDOPERATORS_UTILS_TYPES_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -85,4 +85,4 @@ constexpr auto broadcast_from_tuple(std::tuple<Ts...> tup) {
 }
 }
 
-#endif//SIMDOPERATORS_DBOPS_UTILS_INCLUDE_COLUMN_HPP
+#endif//SRC_SIMDOPERATORS_UTILS_TYPES_HPP

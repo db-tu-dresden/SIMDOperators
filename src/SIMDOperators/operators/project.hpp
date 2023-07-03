@@ -1,8 +1,26 @@
+// ------------------------------------------------------------------- //
+/*
+   This file is part of the SimdOperators Project.
+   Copyright (c) 2022 SimdOperators Team.
+   
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, version 3.
+ 
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.
+ 
+   You should have received a copy of the GNU General Public License 
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// ------------------------------------------------------------------- //
+#ifndef SRC_SIMDOPERATORS_OPERATORS_PROJECT_HPP
+#define SRC_SIMDOPERATORS_OPERATORS_PROJECT_HPP
 #include <iostream>
 
-#include "SIMDOperators/utils/preprocessor.h"
-
-using namespace std;
+#include <SIMDOperators/utils/preprocessor.h>
 
 template<typename ProcessingStyle>
 class project {
@@ -11,19 +29,19 @@ class project {
     class kernel {
 
 
-        // MSV_CXX_ATTRIBUTE_FORCE_INLINE
+        // DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
         // static 
     };
 
   public:
 
-    MSV_CXX_ATTRIBUTE_FORCE_INLINE
+    DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
     static void apply(){
-        cout << "Project test" << endl;
+        std::cout << "Project test" << std::endl;
     }
 
 
 };
 
 
-
+#endif //SRC_SIMDOPERATORS_OPERATORS_PROJECT_HPP

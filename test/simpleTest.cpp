@@ -1,7 +1,7 @@
 #include <iostream>
 
 #include <SIMDOperators/SIMDOperators.h>
-#include "SIMDOperators/utils/AlignmentHelper.hpp"
+#include <SIMDOperators/utils/AlignmentHelper.hpp>
 #include <tslintrin.hpp>
 
 int main(){
@@ -14,9 +14,9 @@ int main(){
 
     if(1){
         auto col = Column<uint64_t>::create(100, ps::vector_size_B());
-        auto data = col.get()->getRawDataPtr();
+        auto data = col->getRawDataPtr();
 
-        for (int i = 0; i < col.get()->getLength(); ++i) {
+        for (int i = 0; i < col->getLength(); ++i) {
             auto alignment = AlignmentHelper<ps>::getAlignment(&data[i]);
             cout << alignment.getOffset() << " // " << alignment.getElementsUntilAlignment() << endl;
         }
@@ -27,7 +27,7 @@ int main(){
         Column<uint64_t> c{10, sizeof(uint64_t)};
 
         {
-            auto data = c.getData();
+            auto data = c.getRawDataPtr();
             for (int i = 0; i < 10; ++i) {
                 data[i] = i;
             }
@@ -35,12 +35,12 @@ int main(){
 
         {
             const auto col = c;
-            auto data = col.getData();
+            auto data = col.getRawDataPtr();
             for (int i = 0; i < col.getLength(); ++i) {
                 cout << data[i] << endl;
             }
 
-            auto d2 = col.getData().get();
+            auto d2 = col.getRawDataPtr();
             for (int i = 0; i < 10; ++i) {
                 cout << "alginment: " << (reinterpret_cast<size_t>(&d2[i]) % 64) << " vs " << AlignmentHelper<ps>::getAlignment(&d2[i]).getOffset() << endl;
             }
@@ -49,18 +49,18 @@ int main(){
         {
             auto col = c.chunk(2, 3);
             for (int i = 0; i < col->getLength(); ++i) {
-                cout << col->getData()[i] << endl;
+                cout << col->getRawDataPtr()[i] << endl;
             }
         }
 
         auto c2 = new Column<uint64_t>(10, sizeof(uint64_t));
         {
-            auto data = c2->getData();
+            auto data = c2->getRawDataPtr();
             for (int i = 0; i < c2->getLength(); ++i) {
                 data[i] = i;
             }
 
-            auto d2 = c2->getData().get();
+            auto d2 = c2->getRawDataPtr();
             for (int i = 0; i < c2->getLength(); ++i) {
                 cout << d2[i] << endl;
             }
@@ -72,11 +72,11 @@ int main(){
     if(0){
         auto col = Column<uint64_t>::create(100, ps::vector_size_B());
         col->setPopulationCount(100);
-        cout << col.get()->getAlignment() << endl;
+        cout << col->getAlignment() << endl;
         // fill column
         {
-            auto data = col.get()->getData();
-            for (int i = 0; i < col.get()->getLength(); ++i) {
+            auto data = col->getRawDataPtr();
+            for (int i = 0; i < col->getLength(); ++i) {
                 data[i] = i;
             }
         }
@@ -85,8 +85,8 @@ int main(){
 
         // print column
         {
-            auto data = col.get()->getData();
-            for (int i = 0; i < col.get()->getLength(); ++i) {
+            auto data = col->getRawDataPtr();
+            for (int i = 0; i < col->getLength(); ++i) {
                 cout << data[i] << endl;
             }
         }
@@ -98,8 +98,8 @@ int main(){
         // print select result
         {   
             cout << "select result" << endl;
-            auto data = select_res.get()->getData();
-            for (int i = 0; i < select_res.get()->getLength(); ++i) {
+            auto data = select_res->getRawDataPtr();
+            for (int i = 0; i < select_res->getLength(); ++i) {
                 cout << data[i] << endl;
             }
         }

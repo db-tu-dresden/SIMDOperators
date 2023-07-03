@@ -1,6 +1,6 @@
 #include <catch2/catch_all.hpp>
 
-#include "SIMDOperators/utils/AlignmentHelper.hpp"
+#include <SIMDOperators/utils/AlignmentHelper.hpp>
 #include <SIMDOperators/SIMDOperators.h>
 #include <iostream>
 #include <tslintrin.hpp>
@@ -21,8 +21,8 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         col->setPopulationCount(100);
         // fill column
         {
-            auto data = col.get()->getData();
-            for (int i = 0; i < col.get()->getLength(); ++i) {
+            auto data = col->getData();
+            for (int i = 0; i < col->getLength(); ++i) {
                 data[i] = i;
             }
         }
@@ -31,9 +31,9 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         {
             auto select_res = tuddbs::select<ps, tsl::functors::greater_than>::apply(col, 50);
             // check the result
-            CHECK(select_res.get()->getPopulationCount() == 49);
-            auto data = select_res.get()->getData();
-            for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+            CHECK(select_res->getPopulationCount() == 49);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
                 CHECK(data[i] == i + 51);
             }
         }
@@ -42,9 +42,9 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         {
             auto select_res = tuddbs::select<ps, tsl::functors::less_than>::apply(col, 50);
             // check the result
-            CHECK(select_res.get()->getPopulationCount() == 50);
-            auto data = select_res.get()->getData();
-            for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+            CHECK(select_res->getPopulationCount() == 50);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
                 CHECK(data[i] == i);
             }
         }
@@ -53,9 +53,9 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         {
             auto select_res = tuddbs::select<ps, tsl::functors::equal>::apply(col, 50);
             // check the result
-            CHECK(select_res.get()->getPopulationCount() == 1);
-            auto data = select_res.get()->getData();
-            for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+            CHECK(select_res->getPopulationCount() == 1);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
                 CHECK(data[i] == 50);
             }
         }
@@ -68,8 +68,8 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         col->setPopulationCount(100);
         // fill column
         {
-            auto data = col.get()->getData();
-            for (int i = 0; i < col.get()->getLength(); ++i) {
+            auto data = col->getData();
+            for (int i = 0; i < col->getLength(); ++i) {
                 data[i] = i;
             }
         }
@@ -78,9 +78,9 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         {
             auto select_res = tuddbs::select<ps, tsl::functors::greater_than>::apply(col, 50);
             // check the result
-            CHECK(select_res.get()->getPopulationCount() == 49);
-            auto data = select_res.get()->getData();
-            for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+            CHECK(select_res->getPopulationCount() == 49);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
                 CHECK(data[i] == i + 51);
             }
         }
@@ -89,9 +89,9 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         {
             auto select_res = tuddbs::select<ps, tsl::functors::less_than>::apply(col, 50);
             // check the result
-            CHECK(select_res.get()->getPopulationCount() == 50);
-            auto data = select_res.get()->getData();
-            for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+            CHECK(select_res->getPopulationCount() == 50);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
                 CHECK(data[i] == i);
             }
         }
@@ -100,9 +100,9 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
         {
             auto select_res = tuddbs::select<ps, tsl::functors::equal>::apply(col, 50);
             // check the result
-            CHECK(select_res.get()->getPopulationCount() == 1);
-            auto data = select_res.get()->getData();
-            for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+            CHECK(select_res->getPopulationCount() == 1);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
                 CHECK(data[i] == 50);
             }
         }
@@ -165,8 +165,8 @@ TEST_CASE("Test Select - Unaligned column test"){
     col->setPopulationCount(100);
     // fill column
     {
-        auto data = col.get()->getData();
-        for (int i = 0; i < col.get()->getLength(); ++i) {
+        auto data = col->getData();
+        for (int i = 0; i < col->getLength(); ++i) {
             data[i] = i;
         }
     }
@@ -178,9 +178,9 @@ TEST_CASE("Test Select - Unaligned column test"){
         auto col_unaligned = col->chunk(offset);
         auto select_res = tuddbs::select<ps, tsl::functors::less_than>::apply(col_unaligned, 50);
         // check the result
-        CHECK(select_res.get()->getPopulationCount() == 50-offset);
-        auto data = select_res.get()->getData();
-        for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+        CHECK(select_res->getPopulationCount() == 50-offset);
+        auto data = select_res->getData();
+        for (int i = 0; i < select_res->getPopulationCount(); ++i) {
             CHECK(data[i] == i);
         }
     }
@@ -190,9 +190,9 @@ TEST_CASE("Test Select - Unaligned column test"){
         auto col_unaligned = col->chunk(offset);
         auto select_res = tuddbs::select<ps, tsl::functors::less_than>::apply(col_unaligned, 50);
         // check the result
-        CHECK(select_res.get()->getPopulationCount() == 50-offset);
-        auto data = select_res.get()->getData();
-        for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+        CHECK(select_res->getPopulationCount() == 50-offset);
+        auto data = select_res->getData();
+        for (int i = 0; i < select_res->getPopulationCount(); ++i) {
             CHECK(data[i] == i);
         }
     }
@@ -202,9 +202,9 @@ TEST_CASE("Test Select - Unaligned column test"){
         auto col_unaligned = col->chunk(offset);
         auto select_res = tuddbs::select<ps, tsl::functors::less_than>::apply(col_unaligned, 50);
         // check the result
-        CHECK(select_res.get()->getPopulationCount() == 50-offset);
-        auto data = select_res.get()->getData();
-        for (int i = 0; i < select_res.get()->getPopulationCount(); ++i) {
+        CHECK(select_res->getPopulationCount() == 50-offset);
+        auto data = select_res->getData();
+        for (int i = 0; i < select_res->getPopulationCount(); ++i) {
             CHECK(data[i] == i);
         }
     }
