@@ -281,5 +281,5 @@ namespace tuddbs{
 
     };
 
-};
+}
 #endif//SIMDOPERATORS_DBOPS_DATASTRUCTURES_INCLUDE_COLUMN_HPP

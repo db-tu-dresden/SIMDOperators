@@ -12,7 +12,7 @@ target_link_libraries(SIMDOperators INTERFACE tsl)
 
 target_sources(SIMDOperators 
     INTERFACE 
-        ${SRC_DIR}/datastructure/column.hpp
+        ${SRC_DIR}/datastructures/column.hpp
         ${SRC_DIR}/utils/types.hpp
         ${SRC_DIR}/operators/project.hpp
 )   

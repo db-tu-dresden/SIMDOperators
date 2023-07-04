@@ -21,5 +21,9 @@ add_executable(operatorTest operatorTest.cpp)
 target_include_directories(operatorTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
 target_link_libraries(operatorTest tsl SIMDOperators Catch2::Catch2WithMain)
 
+add_executable(joinTest joinTest.cpp)
+target_include_directories(joinTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
+target_link_libraries(joinTest tsl SIMDOperators Catch2::Catch2WithMain)
+
 message(STATUS "SIMDOperators_INCLUDE_DIRECTORY: ${SIMDOperators_INCLUDE_DIRECTORY}")
 message(STATUS "TSL_INCLUDE_DIRECTORY: ${TSL_INCLUDE_DIRECTORY}")
