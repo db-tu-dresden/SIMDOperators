@@ -26,8 +26,8 @@
  * @details A detailed description.
  */
 
-#ifndef SIMDOPERATORS_DBOPS_DATASTRUCTURE_INCLUDE_COLUMN_HPP
-#define SIMDOPERATORS_DBOPS_DATASTRUCTURE_INCLUDE_COLUMN_HPP
+#ifndef SRC_SIMDOPERATORS_DATASTRUCTURES_COLUMN_HPP
+#define SRC_SIMDOPERATORS_DATASTRUCTURES_COLUMN_HPP
 
 #include <new>
 #include <utility>
@@ -116,7 +116,7 @@ namespace tuddbs{
         size_t alignment;
         /// The data array of this column.
         // std::shared_ptr<base_type[], std::default_delete<base_type[]>()> data;
-        std::shared_ptr<base_type[]> data;
+        std::shared_ptr<base_type> data;
       public:
 
         // ========== Constructors & Destructors ================================================================== //
@@ -132,7 +132,7 @@ namespace tuddbs{
         Column(size_t length, size_t alignment=sizeof(base_type))
             : length{length},
               alignment{alignment},
-              data{new (std::align_val_t(alignment)) base_type[length]}
+              data{new (std::align_val_t(alignment)) base_type[length], std::default_delete<base_type[]>()}
         {
           assert(alignment >= sizeof(base_type) && "Alignment must be at least the size of the base type.");
           assert(alignment % sizeof(base_type) == 0 && "Alignment must be a multiple of the size of the base type.");
@@ -143,7 +143,7 @@ namespace tuddbs{
             : length{other.length},
               population_count{other.population_count},
               alignment{other.alignment},
-              data{new (std::align_val_t(alignment)) base_type[length]} {
+              data{new (std::align_val_t(alignment)) base_type[length], std::default_delete<base_type[]>()} {
           std::memcpy(data.get(), other.data.get(), length*sizeof(base_type));
         }
 
@@ -161,7 +161,7 @@ namespace tuddbs{
             length = other.length;
             population_count = other.population_count;
             alignment = other.alignment;
-            data = std::shared_ptr<base_type[]>(new (std::align_val_t(alignment)) base_type[length]);
+            data = std::shared_ptr<base_type[]>(new (std::align_val_t(alignment)) base_type[length], std::default_delete<base_type[]>());
             std::memcpy(data.get(), other.data.get(), length*sizeof(base_type));
           }
           return *this;
@@ -248,9 +248,9 @@ namespace tuddbs{
 
         // ========== Chunking ===================================================================================== //
         /// Returns a column pointing into original column with the given offset (start_index) and length.
-        std::shared_ptr<Column<base_type>> chunk(size_t start_index, size_t length = -1){
+        Column<base_type>* chunk(size_t start_index, size_t length = -1){
           /// Create blank column without dedicated memory
-          auto chunk = Column<base_type>::create();
+          auto chunk = new Column<base_type>();
           /// Check if end of column is in range
           chunk->population_count = std::min(length, this->population_count - start_index);
 
@@ -264,11 +264,11 @@ namespace tuddbs{
 
         
         /// Returns a column pointing into original column with the given offset (start_index) and length.
-        std::shared_ptr<const Column<base_type>> chunk(size_t start_index, size_t length = -1) const {
+        const Column<base_type>* chunk(size_t start_index, size_t length = -1) const {
           /// Create blank column without dedicated memory
-          auto chunk = Column<base_type>::create();
+          auto chunk = new Column<base_type>();
           /// Check if end of column is in range
-          chunk->element_count = std::min(length, this->length - start_index);
+          chunk->population_count = std::min(length, this->length - start_index);
 
           chunk->alignment = alignment;
           /// Create new shared_ptr with offset. This pointer shares the same ref counter as the original one.
@@ -282,4 +282,4 @@ namespace tuddbs{
     };
 
 };
-#endif//SIMDOPERATORS_DBOPS_DATASTRUCTURE_INCLUDE_COLUMN_HPP
+#endif//SRC_SIMDOPERATORS_DATASTRUCTURES_COLUMN_HPP
