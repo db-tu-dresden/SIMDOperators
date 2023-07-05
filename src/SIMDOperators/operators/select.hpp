@@ -105,7 +105,7 @@ namespace tuddbs{
             }
 
 
-            auto result = Column<base_type>::create(column->getPopulationCount(), ps::vector_size_B());
+            auto result = new Column<base_type>(column->getPopulationCount(), ps::vector_size_B());
 
             auto result_ptr = result->getRawDataPtr();
             auto column_ptr = column->getRawDataPtr();
