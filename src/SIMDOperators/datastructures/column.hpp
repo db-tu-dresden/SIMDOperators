@@ -116,7 +116,7 @@ namespace tuddbs{
         size_t alignment;
         /// The data array of this column.
         // std::shared_ptr<base_type[], std::default_delete<base_type[]>()> data;
-        std::shared_ptr<base_type> data;
+        std::shared_ptr<base_type[]> data;
       public:
 
         // ========== Constructors & Destructors ================================================================== //
@@ -132,7 +132,7 @@ namespace tuddbs{
         Column(size_t length, size_t alignment=sizeof(base_type))
             : length{length},
               alignment{alignment},
-              data{new (std::align_val_t(alignment)) base_type[length], std::default_delete<base_type[]>()}
+              data{new (std::align_val_t(alignment)) base_type[length]}
         {
           assert(alignment >= sizeof(base_type) && "Alignment must be at least the size of the base type.");
           assert(alignment % sizeof(base_type) == 0 && "Alignment must be a multiple of the size of the base type.");
@@ -143,7 +143,7 @@ namespace tuddbs{
             : length{other.length},
               population_count{other.population_count},
               alignment{other.alignment},
-              data{new (std::align_val_t(alignment)) base_type[length], std::default_delete<base_type[]>()} {
+              data{new (std::align_val_t(alignment)) base_type[length]} {
           std::memcpy(data.get(), other.data.get(), length*sizeof(base_type));
         }
 
@@ -161,7 +161,7 @@ namespace tuddbs{
             length = other.length;
             population_count = other.population_count;
             alignment = other.alignment;
-            data = std::shared_ptr<base_type[]>(new (std::align_val_t(alignment)) base_type[length], std::default_delete<base_type[]>());
+            data = std::shared_ptr<base_type[]>(new (std::align_val_t(alignment)) base_type[length]);
             std::memcpy(data.get(), other.data.get(), length*sizeof(base_type));
           }
           return *this;
