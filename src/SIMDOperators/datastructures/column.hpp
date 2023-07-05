@@ -26,8 +26,8 @@
  * @details A detailed description.
  */
 
-#ifndef SIMDOPERATORS_DBOPS_DATASTRUCTURE_INCLUDE_COLUMN_HPP
-#define SIMDOPERATORS_DBOPS_DATASTRUCTURE_INCLUDE_COLUMN_HPP
+#ifndef SRC_SIMDOPERATORS_DATASTRUCTURES_COLUMN_HPP
+#define SRC_SIMDOPERATORS_DATASTRUCTURES_COLUMN_HPP
 
 #include <new>
 #include <utility>
@@ -248,9 +248,9 @@ namespace tuddbs{
 
         // ========== Chunking ===================================================================================== //
         /// Returns a column pointing into original column with the given offset (start_index) and length.
-        std::shared_ptr<Column<base_type>> chunk(size_t start_index, size_t length = -1){
+        Column<base_type>* chunk(size_t start_index, size_t length = -1){
           /// Create blank column without dedicated memory
-          auto chunk = Column<base_type>::create();
+          auto chunk = new Column<base_type>();
           /// Check if end of column is in range
           chunk->population_count = std::min(length, this->population_count - start_index);
 
@@ -264,11 +264,11 @@ namespace tuddbs{
 
         
         /// Returns a column pointing into original column with the given offset (start_index) and length.
-        std::shared_ptr<const Column<base_type>> chunk(size_t start_index, size_t length = -1) const {
+        const Column<base_type>* chunk(size_t start_index, size_t length = -1) const {
           /// Create blank column without dedicated memory
-          auto chunk = Column<base_type>::create();
+          auto chunk = new Column<base_type>();
           /// Check if end of column is in range
-          chunk->element_count = std::min(length, this->length - start_index);
+          chunk->population_count = std::min(length, this->length - start_index);
 
           chunk->alignment = alignment;
           /// Create new shared_ptr with offset. This pointer shares the same ref counter as the original one.
@@ -282,4 +282,4 @@ namespace tuddbs{
     };
 
 };
-#endif//SIMDOPERATORS_DBOPS_DATASTRUCTURE_INCLUDE_COLUMN_HPP
+#endif//SRC_SIMDOPERATORS_DATASTRUCTURES_COLUMN_HPP
