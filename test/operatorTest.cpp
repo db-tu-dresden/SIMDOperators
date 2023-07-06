@@ -17,7 +17,7 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
     SECTION("using AVX512"){
         using ps = typename tsl::simd<uint64_t, tsl::avx512>;
 
-        auto col = Column<uint64_t>::create(100, ps::vector_size_B());
+        auto col = new Column<uint64_t>(100, ps::vector_size_B());
         col->setPopulationCount(100);
         // fill column
         {
@@ -59,12 +59,13 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
                 CHECK(data[i] == 50);
             }
         }
+        delete col;
     }
 
     SECTION("using Scalar"){
         using ps = typename tsl::simd<uint64_t, tsl::scalar>;
 
-        auto col = Column<uint64_t>::create(100, ps::vector_size_B());
+        auto col = new Column<uint64_t>(100, ps::vector_size_B());
         col->setPopulationCount(100);
         // fill column
         {
@@ -106,6 +107,7 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
                 CHECK(data[i] == 50);
             }
         }
+        delete col;
     }
 
     /*
@@ -161,7 +163,7 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
 TEST_CASE("Test Select - Unaligned column test"){
     using ps = typename tsl::simd<uint64_t, tsl::avx512>;
 
-    auto col = Column<uint64_t>::create(100, ps::vector_size_B());
+    auto col = new Column<uint64_t>(100, ps::vector_size_B());
     col->setPopulationCount(100);
     // fill column
     {
@@ -209,7 +211,7 @@ TEST_CASE("Test Select - Unaligned column test"){
         }
     }
 
-
+    delete col;
 
 }
 

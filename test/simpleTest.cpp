@@ -70,7 +70,8 @@ int main(){
     }
 
     if(0){
-        auto col = Column<uint64_t>::create(100, ps::vector_size_B());
+        auto colPtr = Column<uint64_t>::create(100, ps::vector_size_B());
+        auto col = colPtr.get();
         col->setPopulationCount(100);
         cout << col->getAlignment() << endl;
         // fill column
