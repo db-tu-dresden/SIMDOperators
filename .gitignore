@@ -5,3 +5,5 @@ build/
 libs/*
 .cache/
 .idea/
+
+__pycache__/
