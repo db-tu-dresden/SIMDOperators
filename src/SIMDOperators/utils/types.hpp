@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------- //
 /*
    This file is part of the SimdOperators Project.
-   Copyright (c) 2022 Johannes Pietrzyk.
+   Copyright (c) 2022 SimdOperators Team.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -26,14 +26,14 @@
  * @details A detailed description.
  */
 
-#ifndef SIMDOPERATORS_DBOPS_UTILS_INCLUDE_COLUMN_HPP
-#define SIMDOPERATORS_DBOPS_UTILS_INCLUDE_COLUMN_HPP
+#ifndef SRC_SIMDOPERATORS_UTILS_TYPES_HPP
+#define SRC_SIMDOPERATORS_UTILS_TYPES_HPP
 
 #include <cstddef>
 #include <cstdint>
 #include <concepts>
 
-#include <tvlintrin.hpp>
+#include <tslintrin.hpp>
 
 namespace tuddbs{
 //alias
@@ -71,13 +71,13 @@ concept DataSinkType = DataProviderType<T> &&
 //Helper Structs
 //todo: This should be in the TVL!!!
 namespace details {
-using namespace tvl;
+using namespace tsl;
 template<VectorProcessingStyle Vec, Arithmetic... Ts, std::size_t... I>
 auto broadcast_from_tuple_impl(std::tuple<Ts...> const & tup, std::index_sequence<I...>) {
-  return std::make_tuple(tvl::set1<Vec>(std::get<I>(tup))...);
+  return std::make_tuple(tsl::set1<Vec>(std::get<I>(tup))...);
 }
 }
-using namespace tvl;
+using namespace tsl;
 template<VectorProcessingStyle Vec, Arithmetic... Ts>
 constexpr auto broadcast_from_tuple(std::tuple<Ts...> tup) {
   static_assert(all_of_specific_type<typename Vec::base_type, std::tuple<Ts...>>::value, "Parameters has to be of same type as the specified Vector type.");
@@ -85,4 +85,4 @@ constexpr auto broadcast_from_tuple(std::tuple<Ts...> tup) {
 }
 }
 
-#endif//SIMDOPERATORS_DBOPS_UTILS_INCLUDE_COLUMN_HPP
+#endif//SRC_SIMDOPERATORS_UTILS_TYPES_HPP

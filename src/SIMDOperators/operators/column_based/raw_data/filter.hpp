@@ -1,7 +1,7 @@
 // ------------------------------------------------------------------- //
 /*
    This file is part of the SimdOperators Project.
-   Copyright (c) 2022 Johannes Pietrzyk.
+   Copyright (c) 2022 SimdOperators Team.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -16,7 +16,6 @@
    along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 // ------------------------------------------------------------------- //
-
 /*
  * @file filter.hpp
  * @author jpietrzyk
@@ -26,8 +25,8 @@
  * @details A detailed description.
  */
 
-#ifndef SIMDOPERATORS_DBOPS_OPERATORS_INCLUDE_COLUMN_BASED_FILTER_HPP
-#define SIMDOPERATORS_DBOPS_OPERATORS_INCLUDE_COLUMN_BASED_FILTER_HPP
+#ifndef SRC_SIMDOPERATORS_OPERATORS_COLUMN_BASED_RAW_DATA_FILTER_HPP
+#define SRC_SIMDOPERATORS_OPERATORS_COLUMN_BASED_RAW_DATA_FILTER_HPP
 
 #include <type_traits>
 
@@ -77,4 +76,4 @@ template<template<class, class> class Comparator, DataSinkType ResultType, Vecto
 
 }
 
-#endif //SIMDOPERATORS_DBOPS_OPERATORS_INCLUDE_COLUMN_BASED_FILTER_HPP
+#endif //SRC_SIMDOPERATORS_OPERATORS_COLUMN_BASED_RAW_DATA_FILTER_HPP

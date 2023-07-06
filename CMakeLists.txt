@@ -3,14 +3,26 @@ project(SimdOperators)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/libs/tvl)
-include_directories(${PROJECT_SOURCE_DIR}/dbops/utils/include)
-include_directories(${PROJECT_SOURCE_DIR}/dbops/datastructure/include)
-include_directories(${PROJECT_SOURCE_DIR}/dbops/operators/include)
+# /// create the TSL library
+include(${PROJECT_SOURCE_DIR}/tools/tslgen/tsl.cmake)
+create_tsl(
+    TSLGENERATOR_DIRECTORY ${PROJECT_SOURCE_DIR}/tools/tslgen
+    DESTINATION ${PROJECT_SOURCE_DIR}/libs/tsl
+)
 
+include_directories(${TSL_INCLUDE_DIRECTORY})
 
-add_subdirectory(dbops/operators/src)
-add_subdirectory(dbops/operators/tests)
+add_definitions(${CMAKE_DEFINITIONS})
 
+set(SIMDOperators_INCLUDE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# /// create the SIMDOperators library
+add_subdirectory(src)
 
+# /// create the examples
+add_subdirectory(examples)
+
+# /// create the tests
+if (ENABLE_TESTING)
+    add_subdirectory(test)
+endif()
 
