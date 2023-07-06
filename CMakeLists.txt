@@ -12,10 +12,17 @@ create_tsl(
 
 include_directories(${TSL_INCLUDE_DIRECTORY})
 
+add_definitions(${CMAKE_DEFINITIONS})
+
+set(SIMDOperators_INCLUDE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # /// create the SIMDOperators library
 add_subdirectory(src)
 
-# /// create the tests
-add_subdirectory(test)
+# /// create the examples
+add_subdirectory(examples)
 
+# /// create the tests
+if (ENABLE_TESTING)
+    add_subdirectory(test)
+endif()
 
