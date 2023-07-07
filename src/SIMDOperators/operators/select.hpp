@@ -26,6 +26,74 @@
 #include <SIMDOperators/datastructures/column.hpp>
 
 namespace tuddbs{
+
+    template<typename ProcessingStyle, template<typename ...> typename CompareOperator>
+    class select_core {
+        using ps = ProcessingStyle;
+        using base_type = typename ps::base_type;
+        using scalar = tsl::simd<base_type, tsl::scalar>;
+
+        using col_t = Column<base_type>;
+        using col_ptr = col_t *;
+        using const_col_ptr = const col_t *;
+
+        using reg_t = typename ps::register_type;
+        using mask_t = typename ps::mask_type;
+        using imask_t = typename ps::imask_type;
+
+
+        public:
+        constexpr static bool is_stateful = true;
+
+        struct state {
+            size_t pos_idx;
+            state() : pos_idx(0) {}
+        };
+
+        DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
+        static void 
+        apply(base_type * out1, size_t& out1_count, const base_type * in1, size_t in1_element_count, state& state, base_type predicate1){
+            out1_count = 0;
+
+            if(in1_element_count == 0){
+                return;
+            }
+
+
+            /// [predicate, ...]
+            reg_t const predicate_vector = tsl::set1<ps>(predicate1);
+            /// [element_count, ...]
+            reg_t const increment_vector = tsl::set1<ps>(ps::vector_element_count());
+            /// [0, 1, 2, 3, ...]
+            // reg_t position_vector = tsl::sequence<ps>(); // TODO: check if sequence works correct
+            reg_t position_vector = tsl::custom_sequence<ps>(state.pos_idx, 1); 
+
+
+            size_t vector_count = in1_element_count / ps::vector_element_count();
+            for (size_t i = 0; i < vector_count; ++i) {
+                /// load data into vector register
+                reg_t data_vector = tsl::load<ps>(in1);
+                /// compare data with predicate, resulting in a bit mask
+                mask_t mask = CompareOperator<ps, tsl::workaround>::apply(data_vector, predicate_vector);
+                imask_t imask = tsl::to_integral<ps>(mask);
+                /// count the number of set bits in the mask
+                size_t count = tsl::mask_population_count<ps>(imask);
+                /// store the positions for matched elements
+                tsl::compress_store<ps>(imask, out1, position_vector);
+                /// increment the position vector
+                position_vector = tsl::add<ps>(position_vector, increment_vector);
+                /// increment the output data pointer
+                out1 += count;
+                /// increment the overall count
+                out1_count += count;
+                /// increment the input data pointer
+                in1 += ps::vector_element_count();
+            }
+            state.pos_idx += in1_element_count;
+        }
+    };
+
+
     template<typename ProcessingStyle, template < typename ... > typename CompareOperator >
     class select {
         using ps = ProcessingStyle;

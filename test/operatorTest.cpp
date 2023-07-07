@@ -215,3 +215,53 @@ TEST_CASE("Test Select - Unaligned column test"){
 
 }
 
+TEST_CASE("Test Select (MetaOperator) - varying compare opeartions and different vector extensions", "[operators]"){
+    SECTION("using Scalar"){
+        using ps = typename tsl::simd<uint64_t, tsl::scalar>;
+
+        auto col = new Column<uint64_t>(100, ps::vector_size_B());
+        col->setPopulationCount(100);
+        // fill column
+        {
+            auto data = col->getData();
+            for (int i = 0; i < col->getLength(); ++i) {
+                data[i] = i;
+            }
+        }
+
+        // test with greater_than
+        {
+            auto select_res = tuddbs::MetaOperator<ps, tuddbs::select_core<ps, tsl::functors::greater_than>>::apply(col, 50);
+            // check the result
+            CHECK(select_res->getPopulationCount() == 49);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
+                CHECK(data[i] == i + 51);
+            }
+        }
+
+        // test with less_than
+        {
+            auto select_res = tuddbs::MetaOperator<ps, tuddbs::select_core<ps, tsl::functors::less_than>>::apply(col, 50);
+            // check the result
+            CHECK(select_res->getPopulationCount() == 50);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
+                CHECK(data[i] == i);
+            }
+        }
+
+        // test with equal
+        {
+            auto select_res = tuddbs::MetaOperator<ps, tuddbs::select_core<ps, tsl::functors::equal>>::apply(col, 50);
+            // check the result
+            CHECK(select_res->getPopulationCount() == 1);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
+                CHECK(data[i] == 50);
+            }
+        }
+        delete col;
+    }
+}
+
