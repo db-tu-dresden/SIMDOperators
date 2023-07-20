@@ -25,7 +25,7 @@
 #include <tslintrin.hpp>
 
 namespace tuddbs{
-  template<typename ProcessingStyle, size_t BatchSizeInBytes, template<typename...> class AggregationOperator, template<typename...> class ReduceAggregationOperator>
+  template<typename ProcessingStyle, size_t BatchSizeInBytes, template<typename...> class AggregationOperator, template<typename...> class ReduceAggregationOperator, typename Idof = tsl::workaround>
     class aggregate {
       static_assert(BatchSizeInBytes % ProcessingStyle::vector_size_B() == 0, "BatchSizeInBytes must be a multiple of the vector size in bytes");
       public:
@@ -44,44 +44,69 @@ namespace tuddbs{
           friend class flush_state_t;
           using iresult_t = typename ProcessingStyle::register_type;
           private:
-            data_ptr_t data_ptr;
-            size_t     element_count;
-            iresult_t  result;
+            data_ptr_t m_data_ptr;
+            iresult_t  m_result;
           public:
-            void set_data_ptr(data_ptr_t _data_ptr) {
-              data_ptr = _data_ptr;
+            void data_ptr(data_ptr_t _data_ptr) {
+              m_data_ptr = _data_ptr;
+            }
+            data_ptr_t data_ptr() const {
+              return m_data_ptr;
             }
             void advance() {
-              data_ptr += BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type);
+              m_data_ptr += BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type);
+            }
+            iresult_t result() const {
+              return m_result;
+            }
+            void result(iresult_t result) {
+              m_result = result;;
+            }
+            
+            size_t element_count() const {
+              return BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type);
             }
           public:
             explicit intermediate_state_t(data_ptr_t data_ptr)
-            : data_ptr(tsl::set1<ProcessingStyle>(0)), 
-              element_count(BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type)), 
-              result(AggregationOperator<ProcessingStyle>::identity()) 
+            : m_data_ptr(data_ptr), 
+              m_result(tsl::set1<ProcessingStyle>(0)) 
             {}
             intermediate_state_t(data_ptr_t data_ptr, iresult_t result)
-            : data_ptr(data_ptr), 
-              element_count(BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type)), 
-              result(result) 
+            : m_data_ptr(data_ptr), 
+              m_result(result) 
             {}
         };
         class flush_state_t {
           private:
-            data_ptr_t data_ptr;
-            size_t     element_count;
-            result_t   result;
+            data_ptr_t m_data_ptr;
+            size_t     m_element_count;
+            result_t   m_result;
+          public:
+            result_t result() const {
+              return m_result;
+            }
+            void result(result_t result) {
+              m_result = result;
+            }
+            data_ptr_t data_ptr() const {
+              return m_data_ptr;
+            }
+            size_t element_count() const {
+              return m_element_count;
+            }
           public:
             flush_state_t(data_ptr_t data_ptr, size_t element_count, intermediate_state_t const & intermediate_state)
-            : data_ptr(data_ptr), 
-              element_count(element_count), 
-              result(ReduceAggregationOperator<ProcessingStyle>::apply(result)) 
+            : m_data_ptr(data_ptr), 
+              m_element_count(element_count), 
+              m_result(ReduceAggregationOperator<ProcessingStyle, Idof>::apply(intermediate_state.result())) 
             {}
             flush_state_t(size_t element_count, intermediate_state_t const & intermediate_state)
-            : data_ptr(intermediate_state.data_ptr + BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type)), 
-              element_count(element_count), 
-              result(ReduceAggregationOperator<ProcessingStyle>::apply(result)) 
-            {}
+            : m_data_ptr(intermediate_state.data_ptr()), 
+              m_element_count(element_count), 
+              m_result(ReduceAggregationOperator<ProcessingStyle, Idof>::apply(intermediate_state.result())) 
+            {
+            }
+          
         };
       public:
         template<typename StateT>
@@ -99,12 +124,12 @@ namespace tuddbs{
               tsl::simd<typename ProcessingStyle::base_type, tsl::scalar>
             >;
           
-          auto result = state.result;
-          for (size_t i = 0; i < state.element_count; i += ps::vector_element_count()) {
-            auto const data = ps::loadu(state.data_ptr + i);
-            result = AggregationOperator<ps>::apply(result, data);
+          auto result = state.result();
+          for (size_t i = 0; i < state.element_count(); i += ps::vector_element_count()) {
+            auto const data = tsl::loadu<ps>(state.data_ptr() + i);
+            result = AggregationOperator<ps, Idof>::apply(result, data);
           }
-          state.result = result;
+          state.result(result);
         }
     };
 
