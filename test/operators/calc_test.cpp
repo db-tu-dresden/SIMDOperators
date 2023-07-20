@@ -42,15 +42,23 @@ TEST_CASE("Test Calc - varying calc operations and different vector extrensions"
         
             auto colLhs = new Column<uint64_t>(100, ps::vector_size_B());
             auto colRhs = new Column<uint64_t>(100, ps::vector_size_B());
+            auto colLhsAndOr = new Column<uint64_t>(100, ps::vector_size_B());
+            auto colRhsAndOr = new Column<uint64_t>(100, ps::vector_size_B());
             colLhs->setPopulationCount(100);
             colRhs->setPopulationCount(100);
+            colLhsAndOr->setPopulationCount(100);
+            colRhsAndOr->setPopulationCount(100);
             // fill column
             {
                 auto dataLhs = colLhs->getData();
                 auto dataRhs = colRhs->getData();
+                auto dataLhsAndOr = colLhsAndOr->getData();
+                auto dataRhsAndOr = colRhsAndOr->getData();
                 for (int i = 0; i < colLhs->getLength(); ++i) {
                     dataLhs[i] = i;
                     dataRhs[i] = i;
+                    dataLhsAndOr[i] = i % 2;
+                    dataRhsAndOr[i] = (i+1) % 2;
                 }
             }
 
@@ -97,6 +105,34 @@ TEST_CASE("Test Calc - varying calc operations and different vector extrensions"
             } else {
                 SKIP("Primitive [mul] for [Scalar] not implemented or available on your system.");
             }
+
+            // test with and
+            if constexpr ( detector::has_static_method_apply_v<tsl::functors::binary_and<ps, tsl::workaround>> )
+            {
+                auto calc_res = tuddbs::calc_binary<ps, tsl::functors::binary_and>::apply(colLhsAndOr, colRhsAndOr);
+                // check the result
+                CHECK(calc_res->getPopulationCount() == 100);
+                auto data = calc_res->getData();
+                for (int i = 0; i < calc_res->getPopulationCount(); ++i) {
+                    CHECK(data[i] == 0);
+                }
+            } else {
+                SKIP("Primitive [binary_and] for [Scalar] not implemented or available on your system.");
+            }
+
+            // test with or
+            if constexpr ( detector::has_static_method_apply_v<tsl::functors::binary_or<ps, tsl::workaround>> )
+            {
+                auto calc_res = tuddbs::calc_binary<ps, tsl::functors::binary_or>::apply(colLhsAndOr, colRhsAndOr);
+                // check the result
+                CHECK(calc_res->getPopulationCount() == 100);
+                auto data = calc_res->getData();
+                for (int i = 0; i < calc_res->getPopulationCount(); ++i) {
+                    CHECK(data[i] == 1);
+                }
+            } else {
+                SKIP("Primitive [binary_or] for [Scalar] not implemented or available on your system.");
+            }
         }
     }
     
@@ -109,15 +145,23 @@ TEST_CASE("Test Calc - varying calc operations and different vector extrensions"
         
             auto colLhs = new Column<uint64_t>(100, ps::vector_size_B());
             auto colRhs = new Column<uint64_t>(100, ps::vector_size_B());
+            auto colLhsAndOr = new Column<uint64_t>(100, ps::vector_size_B());
+            auto colRhsAndOr = new Column<uint64_t>(100, ps::vector_size_B());
             colLhs->setPopulationCount(100);
             colRhs->setPopulationCount(100);
+            colLhsAndOr->setPopulationCount(100);
+            colRhsAndOr->setPopulationCount(100);
             // fill column
             {
                 auto dataLhs = colLhs->getData();
                 auto dataRhs = colRhs->getData();
+                auto dataLhsAndOr = colLhsAndOr->getData();
+                auto dataRhsAndOr = colRhsAndOr->getData();
                 for (int i = 0; i < colLhs->getLength(); ++i) {
                     dataLhs[i] = i;
                     dataRhs[i] = i;
+                    dataLhsAndOr[i] = i % 2;
+                    dataRhsAndOr[i] = (i+1) % 2;
                 }
             }
 
@@ -166,6 +210,34 @@ TEST_CASE("Test Calc - varying calc operations and different vector extrensions"
             } else {
                 SKIP("Primitive [mul] for [avx512] not implemented or available on your system.");
             }
+
+            // test with and
+            if constexpr ( detector::has_static_method_apply_v<tsl::functors::binary_and<ps, tsl::workaround>> )
+            {
+                auto calc_res = tuddbs::calc_binary<ps, tsl::functors::binary_and>::apply(colLhsAndOr, colRhsAndOr);
+                // check the result
+                CHECK(calc_res->getPopulationCount() == 100);
+                auto data = calc_res->getData();
+                for (int i = 0; i < calc_res->getPopulationCount(); ++i) {
+                    CHECK(data[i] == 0);
+                }
+            } else {
+                SKIP("Primitive [binary_and] for [avx512] not implemented or available on your system.");
+            }
+
+            // test with or
+            if constexpr ( detector::has_static_method_apply_v<tsl::functors::binary_or<ps, tsl::workaround>> )
+            {
+                auto calc_res = tuddbs::calc_binary<ps, tsl::functors::binary_or>::apply(colLhsAndOr, colRhsAndOr);
+                // check the result
+                CHECK(calc_res->getPopulationCount() == 100);
+                auto data = calc_res->getData();
+                for (int i = 0; i < calc_res->getPopulationCount(); ++i) {
+                    CHECK(data[i] == 1);
+                }
+            } else {
+                SKIP("Primitive [binary_or] for [avx512] not implemented or available on your system.");
+            }
         }
     }
     
@@ -178,15 +250,23 @@ TEST_CASE("Test Calc - varying calc operations and different vector extrensions"
         
             auto colLhs = new Column<uint64_t>(100, ps::vector_size_B());
             auto colRhs = new Column<uint64_t>(100, ps::vector_size_B());
+            auto colLhsAndOr = new Column<uint64_t>(100, ps::vector_size_B());
+            auto colRhsAndOr = new Column<uint64_t>(100, ps::vector_size_B());
             colLhs->setPopulationCount(100);
             colRhs->setPopulationCount(100);
+            colLhsAndOr->setPopulationCount(100);
+            colRhsAndOr->setPopulationCount(100);
             // fill column
             {
                 auto dataLhs = colLhs->getData();
                 auto dataRhs = colRhs->getData();
+                auto dataLhsAndOr = colLhsAndOr->getData();
+                auto dataRhsAndOr = colRhsAndOr->getData();
                 for (int i = 0; i < colLhs->getLength(); ++i) {
                     dataLhs[i] = i;
                     dataRhs[i] = i;
+                    dataLhsAndOr[i] = i % 2;
+                    dataRhsAndOr[i] = (i+1) % 2;
                 }
             }
 
@@ -234,6 +314,34 @@ TEST_CASE("Test Calc - varying calc operations and different vector extrensions"
                 }
             } else {
                 SKIP("Primitive [mul] for [sse] not implemented or available on your system.");
+            }
+
+            // test with and
+            if constexpr ( detector::has_static_method_apply_v<tsl::functors::binary_and<ps, tsl::workaround>> )
+            {
+                auto calc_res = tuddbs::calc_binary<ps, tsl::functors::binary_and>::apply(colLhsAndOr, colRhsAndOr);
+                // check the result
+                CHECK(calc_res->getPopulationCount() == 100);
+                auto data = calc_res->getData();
+                for (int i = 0; i < calc_res->getPopulationCount(); ++i) {
+                    CHECK(data[i] == 0);
+                }
+            } else {
+                SKIP("Primitive [binary_and] for [sse] not implemented or available on your system.");
+            }
+
+            // test with or
+            if constexpr ( detector::has_static_method_apply_v<tsl::functors::binary_or<ps, tsl::workaround>> )
+            {
+                auto calc_res = tuddbs::calc_binary<ps, tsl::functors::binary_or>::apply(colLhsAndOr, colRhsAndOr);
+                // check the result
+                CHECK(calc_res->getPopulationCount() == 100);
+                auto data = calc_res->getData();
+                for (int i = 0; i < calc_res->getPopulationCount(); ++i) {
+                    CHECK(data[i] == 1);
+                }
+            } else {
+                SKIP("Primitive [binary_or] for [sse] not implemented or available on your system.");
             }
         }
     }
