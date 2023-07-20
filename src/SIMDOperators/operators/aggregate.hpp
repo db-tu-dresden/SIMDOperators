@@ -22,10 +22,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
+#include <tslintrin.hpp>
 
 namespace tuddbs{
-  template<typename ProcessingStyle, template<typename> AggregationOperator, template<typename> ReduceAggregationOperator>
-    class select {
+  template<typename ProcessingStyle, size_t BatchSizeInBytes, template<typename...> class AggregationOperator, template<typename...> class ReduceAggregationOperator>
+    class aggregate {
+      static_assert(BatchSizeInBytes % ProcessingStyle::vector_size_B() == 0, "BatchSizeInBytes must be a multiple of the vector size in bytes");
       public:
         using data_ptr_t            = typename ProcessingStyle::base_type const *;
         using result_t              = typename ProcessingStyle::base_type;
@@ -35,12 +37,34 @@ namespace tuddbs{
         /**
          * @brief 
          * @details The `intermediate_state_t` struct is defining a data structure that holds the intermediate state during the aggregation process. 
+         *          It is used to store the data pointer, the number of elements to process and the current result.
+         *          For the intermediate state we assume, that the element count is a multiple of the vector element count.
          */
-        struct intermediate_state_t {
+        class intermediate_state_t {
+          friend class flush_state_t;
           using iresult_t = typename ProcessingStyle::register_type;
-          data_ptr_t data_ptr;
-          size_t     element_count;
-          iresult_t  result;
+          private:
+            data_ptr_t data_ptr;
+            size_t     element_count;
+            iresult_t  result;
+          public:
+            void set_data_ptr(data_ptr_t _data_ptr) {
+              data_ptr = _data_ptr;
+            }
+            void advance() {
+              data_ptr += BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type);
+            }
+          public:
+            explicit intermediate_state_t(data_ptr_t data_ptr)
+            : data_ptr(tsl::set1<ProcessingStyle>(0)), 
+              element_count(BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type)), 
+              result(AggregationOperator<ProcessingStyle>::identity()) 
+            {}
+            intermediate_state_t(data_ptr_t data_ptr, iresult_t result)
+            : data_ptr(data_ptr), 
+              element_count(BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type)), 
+              result(result) 
+            {}
         };
         class flush_state_t {
           private:
@@ -48,8 +72,13 @@ namespace tuddbs{
             size_t     element_count;
             result_t   result;
           public:
-            flush_state_t(data_ptr_t data_ptr, size_t element_count,  intermediate_state_t const & intermediate_state)
+            flush_state_t(data_ptr_t data_ptr, size_t element_count, intermediate_state_t const & intermediate_state)
             : data_ptr(data_ptr), 
+              element_count(element_count), 
+              result(ReduceAggregationOperator<ProcessingStyle>::apply(result)) 
+            {}
+            flush_state_t(size_t element_count, intermediate_state_t const & intermediate_state)
+            : data_ptr(intermediate_state.data_ptr + BatchSizeInBytes / sizeof(typename ProcessingStyle::base_type)), 
               element_count(element_count), 
               result(ReduceAggregationOperator<ProcessingStyle>::apply(result)) 
             {}
@@ -67,7 +96,7 @@ namespace tuddbs{
             std::conditional_t<
               is_intermediate_state::value, 
               ProcessingStyle, 
-              tsl::simd<ProcessingStyle::base_type, tsl::scalar>
+              tsl::simd<typename ProcessingStyle::base_type, tsl::scalar>
             >;
           
           auto result = state.result;

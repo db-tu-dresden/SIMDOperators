@@ -215,3 +215,35 @@ TEST_CASE("Test Select - Unaligned column test"){
 
 }
 
+TEST_CASE("Test Aggregate"){
+    using ps = typename tsl::simd<uint64_t, tsl::avx2>;
+    auto const data_size = 4ULL * 1024 * 8 + 24;
+    auto col = new Column<uint64_t>(data_size/sizeof(uint64_t), ps::vector_size_B());
+    col->setPopulationCount(data_size/sizeof(uint64_t));
+    // fill column
+    {
+        auto data = col->getData();
+        for (int i = 0; i < col->getLength(); ++i) {
+            data[i] = i;
+        }
+    }
+
+    using op_t = tuddbs::aggregate<ps, 4096, tsl::functors::add, tsl::functors::hadd>;
+    op_t::intermediate_state_t state(col->getData());
+    op_t aggregate;
+    for (size_t batch = 0; batch < data_size / 4096; ++batch) {
+      aggregate(state);
+      state.advance();
+    }
+    op_t::flush_state_t flush_state((data_size & 4095)>>3, state);
+    aggregate(flush_state);
+
+    uint64_t n = (col->getLenght()-1);
+    uint64_t expected_result = (n * (n+1)) >> 1;
+    std::cout << "Result: " << flush_state.result << std::endl;
+    std::cout << "Should be: " << expected_result << std::endl;
+    CHECK(flush_state.result == expected_result);
+    delete col;
+
+}
+
