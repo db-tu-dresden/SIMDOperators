@@ -4,7 +4,7 @@
 #include <SIMDOperators/SIMDOperators.h>
 #include <iostream>
 #include <tslintrin.hpp>
-
+#include <SIMDOperators/wrappers/DAPHNE/projectionPath.hpp>
 
 
 using namespace std;
