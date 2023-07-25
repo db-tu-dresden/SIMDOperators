@@ -67,9 +67,9 @@ namespace tuddbs{
 
                 /// Scalar preprocessing
                 size_t batch_size_pre = alignment_elements * sizeof(base_type);
-                tuddbs::basic_stash_t<scalar, 8> state_pre(positions_ptr, result_ptr);
-                tuddbs::project<scalar, 8> project_pre;
-                for (size_t batch = 0; batch < batch_size_pre / 8; ++batch) {
+                tuddbs::basic_stash_t<scalar, scalar::vector_size_B()> state_pre(positions_ptr, result_ptr);
+                tuddbs::project<scalar, scalar::vector_size_B()> project_pre;
+                for (size_t batch = 0; batch < batch_size_pre / scalar::vector_size_B(); ++batch) {
                     project_pre(
                         state_pre, 
                         column_ptr);
@@ -79,9 +79,9 @@ namespace tuddbs{
                 /// Vector processing
                 size_t vector_count = (positions->getPopulationCount() - alignment_elements) / ps::vector_element_count();
                 size_t batch_size_vec = vector_count * ps::vector_element_count() * sizeof(base_type);
-                tuddbs::basic_stash_t<ps, 64> state_vec(positions_ptr + alignment_elements, result_ptr + alignment_elements);
-                tuddbs::project<ps, 64> project_vec;
-                for (size_t batch = 0; batch < batch_size_vec / 64; ++batch) {
+                tuddbs::basic_stash_t<ps, ps::vector_size_B()> state_vec(positions_ptr + alignment_elements, result_ptr + alignment_elements);
+                tuddbs::project<ps, ps::vector_size_B()> project_vec;
+                for (size_t batch = 0; batch < batch_size_vec / ps::vector_size_B(); ++batch) {
                     project_vec( 
                         state_vec,
                         column_ptr
@@ -91,9 +91,9 @@ namespace tuddbs{
                 
                 /// Scalar postprocessing
                 size_t batch_size_post = (positions->getPopulationCount() - alignment_elements - vector_count * ps::vector_element_count()) * sizeof(base_type);
-                tuddbs::basic_stash_t<scalar, 8> state_post(positions_ptr + alignment_elements + vector_count * ps::vector_element_count(), result_ptr + alignment_elements + vector_count * ps::vector_element_count());
-                tuddbs::project<scalar, 8> project_post;
-                for (size_t batch = 0; batch < batch_size_post / 8; ++batch) {
+                tuddbs::basic_stash_t<scalar, scalar::vector_size_B()> state_post(positions_ptr + alignment_elements + vector_count * ps::vector_element_count(), result_ptr + alignment_elements + vector_count * ps::vector_element_count());
+                tuddbs::project<scalar, scalar::vector_size_B()> project_post;
+                for (size_t batch = 0; batch < batch_size_post / scalar::vector_size_B(); ++batch) {
                     project_post( 
                         state_post,
                         column_ptr
