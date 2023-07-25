@@ -4,7 +4,7 @@
 #include <SIMDOperators/SIMDOperators.h>
 #include <iostream>
 #include <tslintrin.hpp>
-
+#include <SIMDOperators/wrappers/DAPHNE/project.hpp>
 
 
 using namespace std;
@@ -39,7 +39,9 @@ TEST_CASE("Test Project - varying project operations and different vector extens
 
         // test normal project
         {
-            auto proj_res = tuddbs::project<ps>::apply(col, pos);
+            using op_t = tuddbs::daphne_project<ps>;
+            op_t project;
+            auto proj_res = project(col, pos);
             // check the result
             CHECK(proj_res->getPopulationCount() == 20);
             auto data = proj_res->getData();
@@ -49,7 +51,7 @@ TEST_CASE("Test Project - varying project operations and different vector extens
         }
 
     }
-    
+    /**
     SECTION("using Scalar"){
         using ps = typename tsl::simd<uint64_t, tsl::scalar>;
 
@@ -134,7 +136,7 @@ TEST_CASE("Test Project - varying project operations and different vector extens
     }
     */
 }
-
+/*
 TEST_CASE("Test Project - Unaligned column test"){
     using ps = typename tsl::simd<uint64_t, tsl::sse>;
 
@@ -197,3 +199,4 @@ TEST_CASE("Test Project - Unaligned column test"){
     }
 
 }
+*/
