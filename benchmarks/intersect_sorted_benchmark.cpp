@@ -11,9 +11,11 @@
 
 using namespace std;
 using ps = tsl::simd<uint64_t, tsl::avx2>;
-using base_t = typename ps::base_type;
 
-void benchmark_intersect_sorted_no_simd(const size_t batch_size, const int v1_data_count, const int v2_data_count){
+template <typename ps>
+void benchmark_no_simd(const size_t batch_size, const int v1_data_count, const int v2_data_count){
+    using base_t = typename ps::base_type;
+
     int result_count;
     (v2_data_count < v1_data_count)? result_count = v2_data_count : result_count = v1_data_count;
 
@@ -48,7 +50,7 @@ void benchmark_intersect_sorted_no_simd(const size_t batch_size, const int v1_da
 
     //Begin Benchmark
     std::cout << "Start Test no SIMD:" << endl;
-    intersect_sorted_no_simd<ps>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
+    typename intersect_sorted_no_simd<ps>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
     auto start = chrono::high_resolution_clock::now();
     while(state.p_Data1Ptr - v1 < v1_data_count && state.p_Data2Ptr - v2 < v2_data_count){
         intersect_sorted_no_simd<ps>{}(state);
@@ -83,7 +85,9 @@ void benchmark_intersect_sorted_no_simd(const size_t batch_size, const int v1_da
     std::free(ref_out);
 }
 
+template <typename ps>
 void benchmark_intersect_sorted(const size_t batch_size, const int v1_data_count, const int v2_data_count){
+    using base_t = typename ps::base_type;
     int result_count;
     (v2_data_count < v1_data_count)? result_count = v2_data_count : result_count = v1_data_count;
 
@@ -118,7 +122,7 @@ void benchmark_intersect_sorted(const size_t batch_size, const int v1_data_count
     std::copy(intersect.begin(), intersect.end(), ref_out);
 
     // SIMD Benchmark
-    tuddbs::intersect_sorted<ps>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
+    typename tuddbs::intersect_sorted<ps>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
     std::cout << "\nStart Test SIMD:" << endl;
     auto start = chrono::high_resolution_clock::now();
     while(((state.p_Data1Ptr - v1 + ps::vector_element_count()) < v1_data_count) && ((state.p_Data2Ptr - v2 + ps::vector_element_count()) < v2_data_count)){
@@ -158,19 +162,24 @@ void benchmark_intersect_sorted(const size_t batch_size, const int v1_data_count
     std::free(ref_out);
 }
 
+template <typename ps>
+void benchmark_wrapper(){
+    const size_t batch_size = 4 * ps::vector_element_count();
+    const int count = 2 * 1024 * 1024 * 1024 / 8;
+
+    std::cout << "Batchsize: " << batch_size << std::endl;
+    benchmark_merge_sorted<ps>(batch_size, count, count);
+    std::cout << "--------------------------------------------------------------------------------------------" << std::endl;
+}
+
 int main(){
-    std::cout << "Starting Intersect_Sorted Benchmark..." << std::endl;
-    size_t batch_size = ps::vector_element_count();
-    const int count = 5 * 1024 * 1024 * 1024 / 8;
+    using ps = tsl::simd<uint64_t, tsl::avx2>;
+    std::cout << "Starting merge_sorted Benchmark..." << std::endl;
+    const size_t batch_size = 4 * ps::vector_element_count();
+    const int count = 2 * 1024 * 1024 * 1024 / 8;
     
-    for(int i = 1; i < 8; i++){
-        batch_size = batch_size * 10;
-        std::cout << "Batchsize: " << batch_size << std::endl;
-        
-        benchmark_intersect_sorted_no_simd(batch_size, count, count);
-        benchmark_intersect_sorted(batch_size, count, count);
-        std::cout << "--------------------------------------------------------------------------------------------" << std::endl;
-    }
+    benchmark_no_simd<ps>(batch_size, count, count);
+    benchmark_wrapper<ps>();
 
     return 0;
 }

@@ -10,10 +10,9 @@
 #include <chrono>
 
 using namespace std;
-using ps = tsl::simd<uint64_t, tsl::avx2>;
-using base_t = typename ps::base_type;
 
-void benchmark_merge_sorted_no_simd(const size_t batch_size, const int v1_data_count, const int v2_data_count){
+template <typename base_t>
+void benchmark_no_simd(const size_t batch_size, const int v1_data_count, const int v2_data_count){
     base_t* v1 = reinterpret_cast<base_t*>(malloc(v1_data_count*sizeof(base_t)));
     base_t* v2 = reinterpret_cast<base_t*>(malloc(v2_data_count*sizeof(base_t)));
     base_t* test_out = reinterpret_cast<base_t*>(malloc((v1_data_count + v2_data_count)*sizeof(base_t)));
@@ -47,11 +46,11 @@ void benchmark_merge_sorted_no_simd(const size_t batch_size, const int v1_data_c
     std::copy(set1.begin(), set1.end(), ref_out);
 
     //Begin Benchmark
-    std::cout << "Start Test no SIMD:" << endl;
-    merge_sorted_no_simd<ps>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
+    std::cout << "Start Test no SIMD:" << std::endl;
+    typename merge_sorted_no_simd<base_t>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
     auto start = chrono::high_resolution_clock::now();
     while(state.p_Data1Ptr - v1 < v1_data_count && state.p_Data2Ptr - v2 < v2_data_count){
-        merge_sorted_no_simd<ps>{}(state);
+        merge_sorted_no_simd<base_t>{}(state);
 
         size_t temp1 = v1 + v1_data_count - state.p_Data1Ptr;
         size_t temp2 = v2 + v2_data_count - state.p_Data2Ptr;
@@ -61,7 +60,7 @@ void benchmark_merge_sorted_no_simd(const size_t batch_size, const int v1_data_c
     }
     state.p_CountData1 = v1 + v1_data_count - state.p_Data1Ptr;
     state.p_CountData2 = v2 + v2_data_count - state.p_Data2Ptr;
-    merge_sorted_no_simd<ps>::flush(state);
+    merge_sorted_no_simd<base_t>::flush(state);
     auto end = chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     std::cout << "Duration without SIMD: " << duration.count() << "μs" << endl;
@@ -83,7 +82,10 @@ void benchmark_merge_sorted_no_simd(const size_t batch_size, const int v1_data_c
     std::free(ref_out);
 }
 
+template < typename ps >
 void benchmark_merge_sorted(const size_t batch_size, const int v1_data_count, const int v2_data_count){
+    using base_t = typename ps::base_type;
+
     // Allocate Memory
     base_t* v1 = reinterpret_cast<base_t*>(malloc(v1_data_count*sizeof(base_t)));
     base_t* v2 = reinterpret_cast<base_t*>(malloc(v2_data_count*sizeof(base_t)));
@@ -118,7 +120,7 @@ void benchmark_merge_sorted(const size_t batch_size, const int v1_data_count, co
     std::copy(set1.begin(), set1.end(), ref_out);
 
     // SIMD Benchmark
-    tuddbs::merge_sorted<ps>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
+    typename tuddbs::merge_sorted<ps>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
     std::cout << "\nStart Test SIMD:" << endl;
     auto start = chrono::high_resolution_clock::now();
     while(((state.p_Data1Ptr - v1 + ps::vector_element_count()) < v1_data_count) && ((state.p_Data2Ptr - v2 + ps::vector_element_count()) < v2_data_count)){
@@ -132,13 +134,10 @@ void benchmark_merge_sorted(const size_t batch_size, const int v1_data_count, co
     }
     state.p_CountData1 = v1 + v1_data_count - state.p_Data1Ptr;
     state.p_CountData2 = v2 + v2_data_count - state.p_Data2Ptr;
-    auto s1 = chrono::high_resolution_clock::now();
     tuddbs::merge_sorted<ps>::flush(state);
     auto end = chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    auto d1 = std::chrono::duration_cast<std::chrono::microseconds>(end - s1);
-    auto d2 = std::chrono::duration_cast<std::chrono::microseconds>(s1 - start);
-    std::cout << "Duration with SIMD:\tBatch Loop: " << d2.count() << "μs\tFlush: " << d1.count() << "μs\tTotal: " << duration.count() << "μs" <<std::endl; 
+    std::cout << "Duration with SIMD: " << duration.count() << "μs" << endl;
 
     // Compare with reference result
     bool allOk = true;
@@ -146,8 +145,8 @@ void benchmark_merge_sorted(const size_t batch_size, const int v1_data_count, co
         allOk &= (ref_out[i] == test_out[i]);
         if(!allOk){
             std::cout << "SIMD: smth went wrong" << endl;
-            printVec(&test_out[i], batch_size, "TestData");
-            printVec(&ref_out[i], batch_size, "RefData");
+            printVec(&test_out[i], 10, "TestData");
+            printVec(&ref_out[i], 10, "RefData");
             break;
         }
     }
@@ -158,19 +157,26 @@ void benchmark_merge_sorted(const size_t batch_size, const int v1_data_count, co
     std::free(ref_out);
 }
 
-int main(){
-    std::cout << "Starting merge_sorted Benchmark..." << std::endl;
-    size_t batch_size = ps::vector_element_count();
+template <typename ps>
+void benchmark_wrapper(){
+    const size_t batch_size = 4 * ps::vector_element_count();
     const int count = 5 * 1024 * 1024 * 1024 / 8;
-    
-    for(int i = 1; i < 8; i++){
-        batch_size = batch_size * 10;
-        std::cout << "Batchsize: " << batch_size << std::endl;
-        
-        benchmark_merge_sorted_no_simd(batch_size, count, count);
-        benchmark_merge_sorted(batch_size, count, count);
-        std::cout << "--------------------------------------------------------------------------------------------" << std::endl;
-    }
+
+    std::cout <<  tsl::type_name<ps>() << "\nBatchsize: " << batch_size << std::endl;
+    benchmark_merge_sorted<ps>(batch_size, count, count);
+    std::cout << "--------------------------------------------------------------------------------------------" << std::endl;
+}
+
+int main(){
+    using ps = tsl::simd<uint64_t, tsl::avx2>;
+    std::cout << "Starting merge_sorted Benchmark..." << std::endl;
+    size_t batch_size = 4 * ps::vector_element_count();
+    const int count = 5 * 1024 * 1024 * 1024 / 8;
+
+    benchmark_no_simd<uint64_t>(batch_size, count, count);
+    benchmark_wrapper<ps>();
+    benchmark_wrapper<tsl::simd<uint64_t, tsl::sse>>();
+    benchmark_wrapper<tsl::simd<uint64_t, tsl::scalar>>();
 
     return 0;
 }
