@@ -1,7 +1,7 @@
 #ifndef SRC_OPERATORS_MERGE_HPP
 #define SRC_OPERATORS_MERGE_HPP
 
-#include "/home/tucholke/work/TSLGen/generated_tsl/generator_output/include/tslintrin.hpp"
+#include "/home/tucholke/work/TSLGen/generated_tsl/generator_output/include/tslintrin.hpp"  //TODO: adapt include path to tslgen
 #include <cassert>
 
 namespace tuddbs {
@@ -60,51 +60,6 @@ namespace tuddbs {
         static void flush(State& myState){
             const base_t *endInPosL = myState.p_Data1Ptr + myState.p_CountData1;
             const base_t *endInPosR = myState.p_Data2Ptr + myState.p_CountData2;
-
-            // size_t element_count = ps::vector_element_count();
-            // reg_t data1Vector, data2Vector;
-
-            // if(myState.p_CountData1 >= element_count){
-            //     data1Vector = tsl::loadu<ps>(myState.p_Data1Ptr);
-            // }
-            // reg_t data1Vector = tsl::set1< ps >(*myState.p_Data1Ptr);
-            // reg_t data2Vector = tsl::loadu< ps >(myState.p_Data2Ptr);
-
-
-            // while (myState.p_Data1Ptr < endInPosL && myState.p_Data2Ptr < endInPosR) {
-            //     if (*myState.p_Data1Ptr < *myState.p_Data2Ptr) {
-            //         cout << "c1(" << *myState.p_Data1Ptr << "), ";
-            //         *myState.result_ptr = *myState.p_Data1Ptr;
-            //         myState.p_Data1Ptr++;
-            //     } else if (*myState.p_Data2Ptr < *myState.p_Data1Ptr) {
-            //         cout << "c2(" << *myState.p_Data2Ptr << "), ";
-            //         *myState.result_ptr = *myState.p_Data2Ptr;
-            //         myState.p_Data2Ptr++;
-            //     } else {// *inPosL == *inPosR
-            //         cout << "c3(" << *myState.p_Data1Ptr << "), ";
-            //         *myState.result_ptr = *myState.p_Data1Ptr;
-            //         myState.p_Data1Ptr++;
-            //         myState.p_Data2Ptr++;
-            //     }
-            //     myState.result_ptr++;
-            // }
-
-            // while (myState.p_Data1Ptr < (endInPosL - element_count)) {
-            //     cout << "l1(" << *myState.p_Data1Ptr << "), ";
-            //     data1Vector = tsl::loadu< ps >(myState.p_Data1Ptr);
-            //     tsl::storeu< ps >(myState.result_ptr, data1Vector);
-            //     myState.result_ptr += element_count;
-            //     myState.p_Data1Ptr += element_count;
-            // }
-
-            // while (myState.p_Data2Ptr < (endInPosR - element_count)) {
-            //     cout << "l2(" << *myState.p_Data2Ptr<<"), ";
-            //     data2Vector = tsl::loadu< ps >(myState.p_Data2Ptr);
-            //     tsl::storeu< ps >(myState.result_ptr, data2Vector);
-            //     myState.p_Data2Ptr += element_count;
-            //     myState.result_ptr += element_count;
-            // }
-            // cout << "Flush:[";
             
             // Traverse both arrays and store the smaller element in result
             while(myState.p_Data1Ptr < endInPosL && myState.p_Data2Ptr < endInPosR){
@@ -130,6 +85,57 @@ namespace tuddbs {
             }
             
             //Store remaining elements of second data pointer
+            while (myState.p_Data2Ptr < endInPosR) {
+                *myState.result_ptr = *myState.p_Data2Ptr;
+                myState.p_Data2Ptr ++;
+                myState.result_ptr ++;
+            }
+        };
+
+        static void flush_vectorized(State& myState){
+            const base_t *endInPosL = myState.p_Data1Ptr + myState.p_CountData1;
+            const base_t *endInPosR = myState.p_Data2Ptr + myState.p_CountData2;
+            const size_t element_count = ps::vector_element_count();
+            
+            // Traverse both arrays and store the smaller element in result
+            while(myState.p_Data1Ptr < endInPosL && myState.p_Data2Ptr < endInPosR){
+                if (*myState.p_Data1Ptr < *myState.p_Data2Ptr) {
+                    *myState.result_ptr = *myState.p_Data1Ptr;
+                    myState.p_Data1Ptr++;
+                } else if (*myState.p_Data2Ptr < *myState.p_Data1Ptr) {
+                    *myState.result_ptr = *myState.p_Data2Ptr;
+                    myState.p_Data2Ptr++;
+                } else {// *inPosL == *inPosR
+                    *myState.result_ptr = *myState.p_Data1Ptr;
+                    myState.p_Data1Ptr++;
+                    myState.p_Data2Ptr++;
+                }
+                myState.result_ptr++;
+            }
+            
+            reg_t dataVector;
+            //Store remaining elements of first data pointer
+            while (myState.p_Data1Ptr < (endInPosL - element_count)) {
+                dataVector = tsl::loadu< ps >(myState.p_Data1Ptr);
+                tsl::storeu< ps >(myState.result_ptr, dataVector);
+                myState.result_ptr += element_count;
+                myState.p_Data1Ptr += element_count;
+            }
+
+            while (myState.p_Data1Ptr < endInPosL) {
+                *myState.result_ptr = *myState.p_Data1Ptr;
+                myState.p_Data1Ptr ++;
+                myState.result_ptr ++;
+            }
+            
+            //Store remaining elements of second data pointer
+            while (myState.p_Data2Ptr < (endInPosR - element_count)) {
+                dataVector = tsl::loadu< ps >(myState.p_Data2Ptr);
+                tsl::storeu< ps >(myState.result_ptr, dataVector);
+                myState.p_Data2Ptr += element_count;
+                myState.result_ptr += element_count;
+            }
+
             while (myState.p_Data2Ptr < endInPosR) {
                 *myState.result_ptr = *myState.p_Data2Ptr;
                 myState.p_Data2Ptr ++;
