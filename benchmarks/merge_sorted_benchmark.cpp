@@ -12,7 +12,7 @@
 using namespace std;
 
 template <typename base_t>
-void benchmark_no_simd(const size_t batch_size, const int v1_data_count, const int v2_data_count){
+void benchmark_no_simd(const int v1_data_count, const int v2_data_count){
     base_t* v1 = reinterpret_cast<base_t*>(malloc(v1_data_count*sizeof(base_t)));
     base_t* v2 = reinterpret_cast<base_t*>(malloc(v2_data_count*sizeof(base_t)));
     base_t* test_out = reinterpret_cast<base_t*>(malloc((v1_data_count + v2_data_count)*sizeof(base_t)));
@@ -47,17 +47,9 @@ void benchmark_no_simd(const size_t batch_size, const int v1_data_count, const i
 
     //Begin Benchmark
     std::cout << "Start Test no SIMD:" << std::endl;
-    typename merge_sorted_no_simd<base_t>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = batch_size, .p_Data2Ptr = v2, .p_CountData2 = batch_size};
+    typename merge_sorted_no_simd<base_t>::State state = {.result_ptr = test_out, .p_Data1Ptr = v1, .p_CountData1 = v1_data_count, .p_Data2Ptr = v2, .p_CountData2 = v2_data_count};
     auto start = chrono::high_resolution_clock::now();
-    while(state.p_Data1Ptr - v1 < v1_data_count && state.p_Data2Ptr - v2 < v2_data_count){
-        merge_sorted_no_simd<base_t>{}(state);
-
-        size_t temp1 = v1 + v1_data_count - state.p_Data1Ptr;
-        size_t temp2 = v2 + v2_data_count - state.p_Data2Ptr;
-
-        state.p_CountData1 = std::min(batch_size, temp1);
-        state.p_CountData2 = std::min(batch_size, temp2);
-    }
+    merge_sorted_no_simd<base_t>{}(state);
     state.p_CountData1 = v1 + v1_data_count - state.p_Data1Ptr;
     state.p_CountData2 = v2 + v2_data_count - state.p_Data2Ptr;
     merge_sorted_no_simd<base_t>::flush(state);
@@ -70,8 +62,8 @@ void benchmark_no_simd(const size_t batch_size, const int v1_data_count, const i
         allOk &= (ref_out[i] == test_out[i]);
         if(!allOk){
             std::cout << "No SIMD: smth went wrong at index: " << i << endl;
-            printVec<base_t>(&test_out[i], batch_size, "TestData");
-            printVec<base_t>(&ref_out[i], batch_size, "RefData");
+            printVec<base_t>(&test_out[i], 10, "TestData");
+            printVec<base_t>(&ref_out[i], 10, "RefData");
             break;
         }
     }
@@ -167,15 +159,17 @@ void benchmark_wrapper(){
     std::cout << "--------------------------------------------------------------------------------------------" << std::endl;
 }
 
-int main(){
-    using ps = tsl::simd<uint64_t, tsl::avx2>;
-    std::cout << "Starting merge_sorted Benchmark..." << std::endl;
-    size_t batch_size = 4 * ps::vector_element_count();
+template <typename base_t>
+void benchmark_wrapper_no_simd(){
     const int count = 5 * 1024 * 1024 * 1024 / 8;
+    benchmark_no_simd<base_t>(count, count);
+}
 
-    benchmark_no_simd<uint64_t>(batch_size, count, count);
+int main(){
+    std::cout << "Starting merge_sorted Benchmark..." << std::endl;
+    benchmark_wrapper_no_simd<uint64_t>();
     benchmark_wrapper<tsl::simd<uint64_t, tsl::avx512>>();
-    benchmark_wrapper<ps>();
+    benchmark_wrapper<tsl::simd<uint64_t, tsl::avx2>>();
     benchmark_wrapper<tsl::simd<uint64_t, tsl::sse>>();
     benchmark_wrapper<tsl::simd<uint64_t, tsl::scalar>>();
 

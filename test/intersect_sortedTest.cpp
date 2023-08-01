@@ -160,84 +160,84 @@ int main(){
         allOk &= test_intersect_sorted<ps>(batch_size, 20, 20);
         std::cout << allOk << std::endl;
     }
-    // // INTEL - SSE
-    // {
-    //     using ps = typename tsl::simd<uint64_t, tsl::sse>;
-    //     const size_t batch_size = ps::vector_element_count();
+    // INTEL - SSE
+    {
+        using ps = typename tsl::simd<uint64_t, tsl::sse>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SSE with uint64_t: ";
-    //     allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
+        std::cout << "\t-SSE with uint64_t: ";
+        allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
+        std::cout << allOk << std::endl;
 
-    // }{
-    //     using ps = typename tsl::simd<int32_t, tsl::sse>;
-    //     const size_t batch_size = ps::vector_element_count();
+    }{
+        using ps = typename tsl::simd<int32_t, tsl::sse>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SSE with int32_t: ";
-    //     bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
-    // }{
-    //     using ps = typename tsl::simd<uint16_t, tsl::sse>;
-    //     const size_t batch_size = ps::vector_element_count();
+        std::cout << "\t-SSE with int32_t: ";
+        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
+        std::cout << allOk << std::endl;
+    }{
+        using ps = typename tsl::simd<uint16_t, tsl::sse>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SSE with uint16_t: ";
-    //     bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
-    // }{
-    //     using ps = typename tsl::simd<int8_t, tsl::sse>;
-    //     const size_t batch_size = ps::vector_element_count();
+        std::cout << "\t-SSE with uint16_t: ";
+        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
+        std::cout << allOk << std::endl;
+    }{
+        using ps = typename tsl::simd<int8_t, tsl::sse>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SSE with int8_t: ";
-    //     bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
-    // }
-    // // INTEL SCALAR
-    // {
-    //     using ps = typename tsl::simd<uint64_t, tsl::scalar>;
-    //     const size_t batch_size = ps::vector_element_count();
+        std::cout << "\t-SSE with int8_t: ";
+        bool allOk = test_intersect_sorted<ps>(batch_size, 20, 15);
+        allOk &= test_intersect_sorted<ps>(batch_size, 15, 20);
+        allOk &= test_intersect_sorted<ps>(batch_size, 20, 20);
+        std::cout << allOk << std::endl;
+    }
+    // INTEL SCALAR
+    {
+        using ps = typename tsl::simd<uint64_t, tsl::scalar>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SCALAR with uint64_t: ";
-    //     allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
+        std::cout << "\t-SCALAR with uint64_t: ";
+        allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
+        std::cout << allOk << std::endl;
 
-    // }{
-    //     using ps = typename tsl::simd<int32_t, tsl::scalar>;
-    //     const size_t batch_size = ps::vector_element_count();
+    }{
+        using ps = typename tsl::simd<int32_t, tsl::scalar>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SCALAR with int32_t: ";
-    //     bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
-    // }{
-    //     using ps = typename tsl::simd<uint16_t, tsl::scalar>;
-    //     const size_t batch_size = ps::vector_element_count();
+        std::cout << "\t-SCALAR with int32_t: ";
+        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
+        std::cout << allOk << std::endl;
+    }{
+        using ps = typename tsl::simd<uint16_t, tsl::scalar>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SCALAR with uint16_t: ";
-    //     bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
-    // }{
-    //     using ps = typename tsl::simd<int8_t, tsl::scalar>;
-    //     const size_t batch_size = ps::vector_element_count();
+        std::cout << "\t-SCALAR with uint16_t: ";
+        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
+        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
+        std::cout << allOk << std::endl;
+    }{
+        using ps = typename tsl::simd<int8_t, tsl::scalar>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     std::cout << "\t-SCALAR with int8_t: ";
-    //     bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-    //     allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-    //     std::cout << allOk << std::endl;
-    // }
+        std::cout << "\t-SCALAR with int8_t: ";
+        bool allOk = test_intersect_sorted<ps>(batch_size, 20, 15);
+        allOk &= test_intersect_sorted<ps>(batch_size, 15, 20);
+        allOk &= test_intersect_sorted<ps>(batch_size, 20, 20);
+        std::cout << allOk << std::endl;
+    }
 
     std::cout << "intersect_sorted result: " << allOk << std::endl;
 }

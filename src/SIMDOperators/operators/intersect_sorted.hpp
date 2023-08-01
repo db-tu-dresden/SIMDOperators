@@ -1,5 +1,5 @@
-#ifndef SRC_OPERATORS_INTERSECT_HPP
-#define SRC_OPERATORS_INTERSECT_HPP
+#ifndef SRC_OPERATORS_INTERSECT_SORTED_HPP
+#define SRC_OPERATORS_INTERSECT_SORTED_HPP
 
 #include "/home/tucholke/work/TSLGen/generated_tsl/generator_output/include/tslintrin.hpp"  //TODO: adapt include path to tslgen
 #include <cassert>
