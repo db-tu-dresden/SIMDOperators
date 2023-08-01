@@ -1,8 +1,7 @@
 #include <cassert>
 
-template < typename ps >
+template < typename base_t >
 class intersect_sorted_no_simd{
-    using base_t = typename ps::base_type;
 
     public:
     struct State{

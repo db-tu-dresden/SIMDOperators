@@ -63,7 +63,7 @@ void benchmark_no_simd(const size_t batch_size, const int v1_data_count, const i
     merge_sorted_no_simd<base_t>::flush(state);
     auto end = chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout << "Duration without SIMD: " << duration.count() << "μs" << endl;
+    std::cout << "Duration without SIMD: " << duration.count() << "μs\n" << endl;
     
     bool allOk = true;
     for(int i = 0; i < (v1_data_count + v2_data_count); i++){
@@ -174,6 +174,7 @@ int main(){
     const int count = 5 * 1024 * 1024 * 1024 / 8;
 
     benchmark_no_simd<uint64_t>(batch_size, count, count);
+    benchmark_wrapper<tsl::simd<uint64_t, tsl::avx512>>();
     benchmark_wrapper<ps>();
     benchmark_wrapper<tsl::simd<uint64_t, tsl::sse>>();
     benchmark_wrapper<tsl::simd<uint64_t, tsl::scalar>>();
