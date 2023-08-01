@@ -1,7 +1,25 @@
+// ------------------------------------------------------------------- //
+/*
+   This file is part of the SimdOperators Project.
+   Copyright (c) 2022 SimdOperators Team.
+   
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, version 3.
+ 
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.
+ 
+   You should have received a copy of the GNU General Public License 
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// ------------------------------------------------------------------- //
 #ifndef SRC_OPERATORS_INTERSECT_SORTED_HPP
 #define SRC_OPERATORS_INTERSECT_SORTED_HPP
 
-#include "/home/tucholke/work/TSLGen/generated_tsl/generator_output/include/tslintrin.hpp"  //TODO: adapt include path to tslgen
+#include <tslintrin.hpp>
 #include <cassert>
 
 namespace tuddbs {
