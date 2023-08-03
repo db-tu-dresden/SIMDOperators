@@ -40,5 +40,9 @@ target_include_directories(AllTests PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperat
 target_link_libraries(AllTests tsl SIMDOperators Catch2::Catch2WithMain)
 
 
+add_executable(joinTest joinTest.cpp)
+target_include_directories(joinTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
+target_link_libraries(joinTest tsl SIMDOperators Catch2::Catch2WithMain)
+
 message(STATUS "SIMDOperators_INCLUDE_DIRECTORY: ${SIMDOperators_INCLUDE_DIRECTORY}")
 message(STATUS "TSL_INCLUDE_DIRECTORY: ${TSL_INCLUDE_DIRECTORY}")

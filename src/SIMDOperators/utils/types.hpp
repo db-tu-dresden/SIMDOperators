@@ -31,7 +31,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#if (__cplusplus == 202002L)
 #include <concepts>
+#endif
 
 #include <tslintrin.hpp>
 
@@ -46,6 +48,7 @@ template <typename T, typename... Us>
 struct all_of_specific_type<T, std::tuple<Us...>> : std::conjunction<std::is_same<T, Us>...> {};
 
 //concepts
+#if (__cplusplus == 202002L)
 template<typename T>
 concept Arithmetic = std::is_arithmetic_v<T>;
 template<typename T>
@@ -66,6 +69,12 @@ concept DataSinkType = DataProviderType<T> &&
   requires(T const & o) {
     { o.data() } -> std::same_as<typename T::base_type const *>;
   };
+#else 
+#define Arithmetic typename
+#define DataProviderType typename
+#define DataSourceType typename
+#define DataSinkType typename
+#endif
 
 
 //Helper Structs
