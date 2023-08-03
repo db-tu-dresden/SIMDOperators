@@ -25,7 +25,7 @@
 
 namespace tuddbs{
     template<typename ProcessingStyle>
-    class projectionPath {
+    class daphne_projection_path {
         using ps = ProcessingStyle;
         using base_type = typename ps::base_type;
         using scalar = tsl::simd<base_type, tsl::scalar>;
