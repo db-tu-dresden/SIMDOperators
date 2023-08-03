@@ -10,6 +10,7 @@ namespace tuddbs{};
 #include <SIMDOperators/operators/project.hpp>
 #include <SIMDOperators/operators/calc.hpp>
 #include <SIMDOperators/operators/MetaOperator.hpp>
+#include <SIMDOperators/operators/aggregate.hpp>
 
 
 #endif //SRC_SIMDOPERATORS_SIMDOPERATORS_H
