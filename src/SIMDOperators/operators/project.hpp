@@ -21,27 +21,50 @@
 #include <iostream>
 
 #include <SIMDOperators/utils/preprocessor.h>
+#include <SIMDOperators/utils/AlignmentHelper.hpp>
+#include <SIMDOperators/datastructures/column.hpp>
+#include <SIMDOperators/utils/BasicStash.hpp>
 
-template<typename ProcessingStyle>
-class project {
-    using ps = ProcessingStyle;
+namespace tuddbs{
+    template<typename ProcessingStyle, size_t BatchSizeInBytes>
+    class project {
+        static_assert(BatchSizeInBytes % ProcessingStyle::vector_size_B() == 0, "BatchSizeInBytes must be a multiple of the vector size!");
 
-    class kernel {
+        using ps = ProcessingStyle;
+        using base_type = typename ps::base_type;
+        using scalar = tsl::simd<base_type, tsl::scalar>;
 
+        using col_t = Column<base_type>;
+        using col_ptr = col_t *;
+        using const_col_ptr = const col_t *;
 
-        // DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
-        // static 
+        using reg_t = typename ps::register_type;
+
+        public:
+
+            template<typename StateT>
+            void operator()(StateT & state, const base_type * input_data) {
+                const base_type * pos_ptr = state.data_ptr();
+
+                base_type * result_ptr = state.result_ptr();
+
+                for (size_t i = 0; i < state.element_count(); i += ps::vector_element_count()) {
+                    /// load data into vector register
+                    reg_t data_vector = tsl::load<ps>(pos_ptr);
+                    /// gather the corresponding data
+                    reg_t result_vector = tsl::gather<ps, ps>(input_data, data_vector);
+                    /// store the resulting data
+                    tsl::storeu<ps>(result_ptr, result_vector);
+                    /// increment the position vector
+                    pos_ptr += ps::vector_element_count();
+                    /// increment the output data pointer
+                    result_ptr += ps::vector_element_count();
+                }
+                state.result_ptr(result_ptr);
+                state.data_ptr(pos_ptr);
+            }
     };
 
-  public:
-
-    DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
-    static void apply(){
-        std::cout << "Project test" << std::endl;
-    }
-
-
-};
-
+}; // namespace tuddbs
 
 #endif //SRC_SIMDOPERATORS_OPERATORS_PROJECT_HPP
