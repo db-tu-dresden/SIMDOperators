@@ -20,7 +20,7 @@ namespace vectorlib {
          state_t( typename VectorExtension::base_type const p_Prime = ( ( 1 << 16 ) + 1 ) ):
             m_Prime{tsl::set1<VectorExtension>( p_Prime ) }{ }
       };
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       static
       typename VectorExtension::register_type apply(
          typename VectorExtension::register_type const & p_Key,
@@ -32,7 +32,7 @@ namespace vectorlib {
                p_State.m_Prime
             );
       }
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       static
       typename VectorExtension::register_type apply(
          typename VectorExtension::register_type const & p_Key,

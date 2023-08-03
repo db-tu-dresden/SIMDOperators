@@ -156,7 +156,7 @@ namespace vectorlib {
                   if(searchOffset != 0) {
                      done = true;
                   } else {
-                     if(MSV_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
+                     if(DBTUD_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
                         currentSearchPtr += VectorExtension::vector_element_count();
                         index += VectorExtension::vector_element_count();
                      } else {
@@ -232,7 +232,7 @@ namespace vectorlib {
                   if(searchOffset != 0) {
                      done = true;
                   } else {
-                     if(MSV_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
+                     if(DBTUD_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
                         currentSearchPtr += VectorExtension::vector_element_count();
                         index += VectorExtension::vector_element_count();
                      } else {
@@ -294,7 +294,7 @@ namespace vectorlib {
                      p_SearchState.m_KeyContainerStartPtr[ index + __builtin_ctz(searchOffset) ] = key;
                      done = true;
                   } else {
-                     if(MSV_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
+                     if(DBTUD_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
                         currentSearchPtr += VectorExtension::vector_element_count();
                         index += VectorExtension::vector_element_count();
                      } else {
@@ -362,7 +362,7 @@ namespace vectorlib {
                      p_SearchState.m_ValueContainerStartPtr[targetIdx] = value;
                      done = true;
                   } else {
-                     if(MSV_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
+                     if(DBTUD_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
                         currentSearchPtr += VectorExtension::vector_element_count();
                         index += VectorExtension::vector_element_count();
                      } else {
@@ -442,7 +442,7 @@ namespace vectorlib {
                      ++activeGroupExtCount;
                      done = true;
                   } else {
-                     if(MSV_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
+                     if(DBTUD_CXX_ATTRIBUTE_LIKELY(currentSearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
                         currentSearchPtr += VectorExtension::vector_element_count();
                         index += VectorExtension::vector_element_count();
                      } else {
@@ -551,7 +551,7 @@ namespace vectorlib {
                      ++activeGroupExtCount;
                      done = true;
                   } else {
-                     if(MSV_CXX_ATTRIBUTE_LIKELY(currentFirstKeySearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
+                     if(DBTUD_CXX_ATTRIBUTE_LIKELY(currentFirstKeySearchPtr < p_SearchState.m_KeyContainerEndPtr)) {
                         currentFirstKeySearchPtr += VectorExtension::vector_element_count();
                         currentSecondKeySearchPtr += VectorExtension::vector_element_count();
                         index += VectorExtension::vector_element_count();

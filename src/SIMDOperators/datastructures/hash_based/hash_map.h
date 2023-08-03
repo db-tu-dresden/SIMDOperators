@@ -38,7 +38,7 @@ namespace vectorlib {
    public:
 
       template< class VectorExtension >
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       void
       insert(
          typename VectorExtension::register_type const & p_KeysToLookup,
@@ -55,7 +55,7 @@ namespace vectorlib {
       }
 
       template< class VectorExtension >
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       std::tuple<
          typename VectorExtension::register_type,      // groupID vector register
          typename VectorExtension::register_type,      // groupExt vector register
@@ -79,7 +79,7 @@ namespace vectorlib {
 
 
       template< class VectorExtension >
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       std::tuple< typename VectorExtension::register_type, typename VectorExtension::mask_type, uint8_t >
       lookup(
          typename VectorExtension::register_type const & p_KeysToLookup,

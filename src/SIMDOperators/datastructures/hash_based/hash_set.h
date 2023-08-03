@@ -37,7 +37,7 @@ namespace vectorlib {
    class hash_set{
       public:
          template< class VectorExtension >
-         MSV_CXX_ATTRIBUTE_FORCE_INLINE
+         DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
          void
          insert(
             typename VectorExtension::register_type const & p_KeysToLookup,
@@ -52,7 +52,7 @@ namespace vectorlib {
          }
 
          template< class VectorExtension >
-         MSV_CXX_ATTRIBUTE_FORCE_INLINE
+         DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
          std::pair< typename VectorExtension::mask_type, uint8_t >
          lookup(
             typename VectorExtension::register_type const & p_KeysToLookup,

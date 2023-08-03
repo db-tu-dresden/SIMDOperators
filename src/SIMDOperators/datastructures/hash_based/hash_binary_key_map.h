@@ -7,7 +7,7 @@
 
 #include <SIMDOperators/utils/preprocessor.h>
 #include <tslintrin.hpp>
-#include <SIMDoperators/datastructures/hash_based/hash_utils.h>
+#include <SIMDOperators/datastructures/hash_based/hash_utils.h>
 
 #ifdef MSV_NO_SELFMANAGED_MEMORY
 #include <core/memory/management/utils/alignment_helper.h>
@@ -35,7 +35,7 @@ namespace vectorlib {
    class hash_binary_key_map{
       public:
          template< class VectorExtension >
-         MSV_CXX_ATTRIBUTE_FORCE_INLINE
+         DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
          std::tuple<
             typename VectorExtension::register_type,      // groupID vector register
             typename VectorExtension::register_type,      // groupExt vector register

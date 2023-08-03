@@ -121,7 +121,7 @@ namespace vectorlib {
        * @param p_State A state providing the needed modulo operand vector register.
        * @return A vector register containing the mapped indices.
        */
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       static
       typename VectorExtension::register_type
       apply( typename VectorExtension::register_type const & p_IndexValues, state_t const & p_State ) {
@@ -156,7 +156,7 @@ namespace vectorlib {
        * @param p_State A state providing the needed modulo operand vector register.
        * @return A vector register containing the mapped indices.
        */
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       static
       typename VectorExtension::register_type
       apply( typename VectorExtension::register_type const & p_IndexValues, state_t const & p_State ) {
@@ -217,7 +217,7 @@ namespace vectorlib {
        * @return Vector register (VectorExtension::vector_t) with transformed indices.
        */
       template< class BiggestSupportedVectorExtension >
-      MSV_CXX_ATTRIBUTE_FORCE_INLINE
+      DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
       static
       typename VectorExtension::register_type
       apply( typename VectorExtension::register_type const & p_IndexValues, state_t<BiggestSupportedVectorExtension> const & p_State ) {

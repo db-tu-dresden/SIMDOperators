@@ -25,6 +25,8 @@ namespace tuddbs{
         using col_ptr = col_t *;
         using const_col_ptr = const col_t *;
 
+        public:
+
         template<
             typename batchps,
             class DataStructureBatch
@@ -38,7 +40,7 @@ namespace tuddbs{
             using imask_t = typename batchps::imask_type;
 
             //IMPORT_VECTOR_BOILER_PLATE(batchps)
-            MSV_CXX_ATTRIBUTE_FORCE_INLINE static void apply(
+            DBTUD_CXX_ATTRIBUTE_FORCE_INLINE static void apply(
                 base_type *& p_InBuildDataPtr,
                 size_t const p_Count,
                 base_type const p_InPositionIn,
@@ -71,7 +73,7 @@ namespace tuddbs{
             using imask_t = typename batchps::imask_type;
 
             //IMPORT_VECTOR_BOILER_PLATE(batchps)
-            MSV_CXX_ATTRIBUTE_FORCE_INLINE static size_t
+            DBTUD_CXX_ATTRIBUTE_FORCE_INLINE static size_t
             apply(
                 base_type *& p_InProbeDataPtr,
                 size_t const p_Count,
@@ -118,7 +120,7 @@ namespace tuddbs{
 
     public:
 
-        MSV_CXX_ATTRIBUTE_FORCE_INLINE
+        DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
         static std::tuple<col_ptr, col_ptr> apply(const_col_ptr lhs, const_col_ptr rhs){
             
             /// Get the alignment of the columns
@@ -184,30 +186,7 @@ namespace tuddbs{
 
     };
 
-    //Define convenience function
-    template<
-        typename VectorExtension
-    >
-    std::tuple<
-        Column< typename VectorExtension::base_type > *,
-        Column< typename VectorExtension::base_type > *
-    > 
-    natural_equi_join(
-    Column< typename VectorExtension::base_type > const * const p_InDataLCol,
-    Column< typename VectorExtension::base_type > const * const p_InDataRCol,
-    size_t const outCountEstimate = 0
-    ) {
-    return naturalEquiJoin<
-        VectorExtension,
-        vectorlib::hash_map<
-            VectorExtension,
-            vectorlib::multiply_mod_hash,
-            vectorlib::size_policy_hash::EXPONENTIAL,
-            vectorlib::scalar_key_vectorized_linear_search,
-            60
-        >
-    >::apply(p_InDataLCol,p_InDataRCol);
-    }
+    
 
 }; //namespace tuddbs
 
