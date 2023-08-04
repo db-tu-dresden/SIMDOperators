@@ -43,12 +43,12 @@ namespace tuddbs{
             DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
             col_ptr operator()(const_col_ptr column){
 
-                auto result = new Column<base_type>(1, ps::vector_size_B());
+                auto result = new Column<base_type>(1, ps::vector_alignment());
 
                 auto result_ptr = result->getRawDataPtr();
                 auto column_ptr = column->getRawDataPtr();
 
-                auto batch_size = ps::vector_size_B();
+                const size_t batch_size = ps::vector_size_B();
                 auto data_size = ps::vector_size_B() * column->getPopulationCount() / ps::vector_element_count();
 
                 using op_t = tuddbs::aggregate<ps, batch_size, AggregationOperator, ReduceAggregationOperator>;
@@ -58,9 +58,10 @@ namespace tuddbs{
                     aggregate(state);
                     state.advance();
                 }
-                typename op_t::flush_state_t flush_state(data_size % batch_size, state);
+                typename op_t::flush_state_t flush_state(data_size % batch_size / 8, state);
                 aggregate(flush_state);
 
+                result_ptr[0] = flush_state.result();
 
                 result->setPopulationCount(1);
                 return result;
