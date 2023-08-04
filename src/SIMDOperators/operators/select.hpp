@@ -191,7 +191,6 @@ namespace tuddbs{
 
             /// Scalar preprocessing
             size_t pos_count = batch<scalar>::apply( result_ptr, column_ptr, predicate, alignment_elements, 0 );
-            // std::cout << "Scalar preprocessing: " << alignment_elements << " // " << pos_count << std::endl;
 
             /// Vector processing
             size_t vector_count = (column->getPopulationCount() - alignment_elements) / ps::vector_element_count();
@@ -202,7 +201,7 @@ namespace tuddbs{
                 vector_count,
                 alignment_elements
             );
-            // std::cout << "Vector processing: " << vector_count << " // " << pos_count << std::endl;
+
             /// Scalar postprocessing
             pos_count += batch<scalar>::apply( 
                 result_ptr + pos_count, 
@@ -211,7 +210,6 @@ namespace tuddbs{
                 column->getPopulationCount() - alignment_elements - vector_count * ps::vector_element_count(),
                 alignment_elements + vector_count * ps::vector_element_count() 
             );
-            // std::cout << "Scalar postprocessing: " << column->getPopulationCount() - alignment_elements - vector_count * ps::vector_element_count() << " // " << pos_count << std::endl;
 
             result->setPopulationCount(pos_count);
 
