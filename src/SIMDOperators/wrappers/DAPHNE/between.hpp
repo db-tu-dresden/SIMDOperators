@@ -40,16 +40,13 @@ namespace tuddbs{
 
         DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
         col_ptr operator()(const_col_ptr column, base_type lower_bound, base_type higher_bound){
-            using op_t = tuddbs::daphne_select<ps, tsl::functors::less_than_or_equal>;
-            op_t select_lower;
+            tuddbs::daphne_select<ps, tsl::functors::less_than_or_equal> select_lower;
             col_ptr lesser_pos = select(column, lower_bound);
 
-            using op_t = tuddbs::daphne_select<ps, tsl::functors::greater_than_or_equal>;
-            op_t select_greater;
+            tuddbs::daphne_select<ps, tsl::functors::greater_than_or_equal> select_greater;
             col_ptr greater_pos = select(column, lower_bound);
 
-            using op_t = tuddbs::daphne_intersect<ps>;
-            op_t intersect;
+            tuddbs::daphne_intersect<ps> intersect;
             return intersect(lesser_pos, greater_pos);
         }
 

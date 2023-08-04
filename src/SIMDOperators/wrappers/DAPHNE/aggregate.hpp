@@ -41,7 +41,7 @@ namespace tuddbs{
         public:
 
             DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
-            col_ptr operator()(const_col_ptr column, const base_type& predicate){
+            col_ptr operator()(const_col_ptr column){
 
                 auto result = new Column<base_type>(1, ps::vector_size_B());
 
