@@ -193,7 +193,7 @@ namespace tuddbs{
 
 
         template<typename ... TArgs>
-        static std::shared_ptr<Column<base_type>> create(TArgs ... args) {
+        static Column<base_type> * create(TArgs ... args) {
           return new Column<base_type>(args...);
         }
 
