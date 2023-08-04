@@ -38,6 +38,17 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
             }
         }
 
+        // test with greater_than
+        {
+            auto select_res = tuddbs::between<ps>::apply(col, 50, 75);
+            // check the result
+            CHECK(select_res->getPopulationCount() == 26);
+            auto data = select_res->getData();
+            for (int i = 0; i < select_res->getPopulationCount(); ++i) {
+                CHECK(data[i] == i + 50);
+            }
+        }
+
         // test with less_than
         {
             auto select_res = tuddbs::select<ps, tsl::functors::less_than>::apply(col, 50);
