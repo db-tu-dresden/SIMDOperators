@@ -15,9 +15,9 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
     
 
     SECTION("using AVX512"){
-        using ps = typename tsl::simd<uint64_t, tsl::avx512>;
+        using ps = typename tsl::simd<int64_t, tsl::avx512>;
 
-        auto col = new Column<uint64_t>(100, ps::vector_size_B());
+        auto col = new Column<int64_t>(100, ps::vector_size_B());
         col->setPopulationCount(100);
         // fill column
         {
@@ -38,7 +38,7 @@ TEST_CASE("Test Select - varying compare opeartions and different vector extensi
             }
         }
 
-        // test with greater_than
+        // test with between
         {
             auto select_res = tuddbs::between<ps>::apply(col, 50, 75);
             // check the result
