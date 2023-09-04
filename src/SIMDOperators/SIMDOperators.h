@@ -30,5 +30,7 @@ namespace tuddbs{};
 #include <SIMDOperators/operators/MetaOperator.hpp>
 #include <SIMDOperators/operators/aggregate.hpp>
 #include <SIMDOperators/operators/naturalEquiJoin.hpp>
+#include <SIMDOperators/operators/between.hpp>
+
 
 #endif //SRC_SIMDOPERATORS_SIMDOPERATORS_H
