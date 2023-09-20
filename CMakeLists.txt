@@ -5,6 +5,12 @@ set(CMAKE_CXX_STANDARD 20)
 
 # /// create the TSL library
 include(${PROJECT_SOURCE_DIR}/tools/tslgen/tsl.cmake)
+
+# Install python dependencies
+execute_process(
+    COMMAND pip install -r ${PROJECT_SOURCE_DIR}/tools/tslgen/requirements.txt
+)
+
 create_tsl(
     TSLGENERATOR_DIRECTORY ${PROJECT_SOURCE_DIR}/tools/tslgen
     DESTINATION ${PROJECT_SOURCE_DIR}/libs/tsl
