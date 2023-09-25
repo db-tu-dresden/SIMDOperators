@@ -28,27 +28,22 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     temp_vec = vec;
 
     // Ref Value
-    reg_t dummy;
     while(temp_vec  <= (vec + data_count)){
-        if constexpr(std::is_scalar<decltype(Operator< ps, tsl::workaround>::apply(dummy))>::value){
-            *temp_ref = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*temp_vec++);
-        }else{
-            *temp_ref++ = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*temp_vec++);
-        }
+        *temp_ref++ = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*temp_vec++);
     }
     temp_vec = vec;
     temp_ref = ref_result;
 
     // Begin test
-    typename tuddbs::calc_unary<ps, Operator>::State state = {.result_ptr = test_result, .p_Data1Ptr = vec, .p_CountData1 = data_count};
-    while((state.p_Data1Ptr - vec + ps::vector_element_count()) < data_count){
+    typename tuddbs::calc_unary<ps, Operator>::State state = {.result_ptr = test_result, .data_ptr = vec, .count = data_count};
+    while((state.data_ptr - vec + ps::vector_element_count()) < data_count){
         tuddbs::calc_unary<ps, Operator>{}(state);
 
-        const size_t t = vec + data_count - state.p_Data1Ptr;
+        const size_t t = vec + data_count - state.data_ptr;
 
-        state.p_CountData1 = std::min(batch_size, t);
+        state.count = std::min(batch_size, t);
     }
-    state.p_CountData1 = vec + data_count - state.p_Data1Ptr;
+    state.count = vec + data_count - state.data_ptr;
     tuddbs::calc_unary<ps, Operator>::flush(state);
 
     //Check if Test is correct
@@ -64,6 +59,20 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     return allOk;
 }
 
+template<typename ps , template <typename ...> typename Operator, typename state_t>
+state_t calc_unary_exec(state_t state, size_t batch_size){
+    typename ps::base_type* vec = state.data_ptr;
+    while((state.data_ptr - vec + ps::vector_element_count()) < state.count){
+        tuddbs::calc_unary<ps, Operator>{}(state);
+
+        const size_t t = vec + state.count - state.data_ptr;
+
+        state.count = std::min(batch_size, t);
+    }
+    state.count = vec + state.count - state.data_ptr;
+    tuddbs::calc_unary<ps, Operator>::flush(state);
+}
+
 int main()
 {
     const int count = 10000;
@@ -76,8 +85,6 @@ int main()
         const size_t batch_size = ps::vector_element_count();
 
         allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
-        allOk &= test_calc_unary<ps, tsl::functors::hadd>(batch_size, count);
-        allOk &= test_calc_unary<ps, tsl::functors::unequal_zero>(batch_size, count);
     }
     // INTEL - SSE
     {
@@ -85,8 +92,6 @@ int main()
         const size_t batch_size = ps::vector_element_count();
 
         allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
-        allOk &= test_calc_unary<ps, tsl::functors::hadd>(batch_size, count);
-        allOk &= test_calc_unary<ps, tsl::functors::unequal_zero>(batch_size, count);
     }
     // INTEL - SCALAR
     {
@@ -94,8 +99,6 @@ int main()
         const size_t batch_size = ps::vector_element_count();
 
         allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
-        allOk &= test_calc_unary<ps, tsl::functors::hadd>(batch_size, count);
-        allOk &= test_calc_unary<ps, tsl::functors::unequal_zero>(batch_size, count);
     }
     
     std::cout << "Result: " << allOk << std::endl;

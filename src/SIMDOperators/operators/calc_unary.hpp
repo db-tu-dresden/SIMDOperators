@@ -21,7 +21,6 @@
 
 #include "/home/dertuchi/work/TSL/generated_tsl/generator_output/include/tslintrin.hpp"
 #include <cassert>
-#include <type_traits>
 
 namespace tuddbs {
     
@@ -30,51 +29,106 @@ namespace tuddbs {
         using base_t = typename ps::base_type;
         using mask_t = typename ps::imask_type;
         using reg_t = typename ps::register_type;
+        using offset_t = typename ps::offset_base_type;
 
         public:
         struct State{
             base_t* result_ptr;
-            base_t const* p_Data1Ptr;
-            size_t p_CountData1;
-            base_t const* p_Data2Ptr = nullptr;
-            size_t p_CountData2 = 0;
+            base_t const* data_ptr;
+            size_t count;
+        };
+
+        struct State_gather{
+            base_t* result_ptr;
+            base_t const* data_ptr;
+            offset_t* pos_ptr;
+            size_t const pos_count;
+        };
+
+        struct State_bitlist{
+            base_t* result_ptr;
+            base_t const* data_ptr;
+            mask_t bitlist_ptr;
+            size_t count;
         };
 
         void operator()(State& myState){
             size_t element_count = ps::vector_element_count();
 
-            const base_t *start = myState.p_Data1Ptr;
-            const base_t *end = myState.p_Data1Ptr + myState.p_CountData1;
+            const base_t *end = myState.data_ptr + myState.count;
 
-            reg_t vec;
-            if constexpr(std::is_scalar<decltype(Operator< ps, tsl::workaround>::apply(vec))>::value){
-                while(myState.p_Data1Ptr <= (end - element_count)){
-                    vec = tsl::loadu< ps >(myState.p_Data1Ptr);
-                    *myState.result_ptr = Operator< ps, tsl::workaround>::apply(vec);
-                    myState.p_Data1Ptr += element_count;
-                }
+            while(myState.data_ptr <= (end - element_count)){
+                reg_t vec = tsl::loadu< ps >(myState.data_ptr);
+
+                reg_t result = Operator< ps, tsl::workaround>::apply(vec);
+                tsl::storeu< ps >(myState.result_ptr, result);
+
+                myState.result_ptr += element_count;
+                myState.data_ptr += element_count;
+            }
+        };
+
+        void operator()(State_bitlist& myState){
+            size_t const element_count = ps::vector_element_count();
+            size_t const mask_size = sizeof(mask_t) * 8;
+
+            const base_t *end = myState.data_ptr + myState.count;
+
+            if constexpr(element_count < mask_size){
+                // darauf achten, dass zuerst die relevanten bits verwendet werden (Stichwort: packed )
             }else{
-                while(myState.p_Data1Ptr <= (end - element_count)){
-                    vec = tsl::loadu< ps >(myState.p_Data1Ptr);
+                while(myState.data_ptr <= (end - element_count)){
+                    base_t* data;
+                    const base_t *start = data;
+                    int mask_count;
+                    while(mask_count < element_count){
+                        mask_t mask = *myState.bitlist_ptr;
+                        mask_count = tsl::mask_population_count< ps >(mask);
 
+                        // Mask_count is greater than element count -> split mask so data fits again
+                        if(mask_count > element_count){
+                            // Find index where to split the mask
+                            size_t index = 0;
+                            mask_t split_mask = 0;
+                            for (size_t i = 0; i < mask_size && index >= mask_count - element_count; i++) {
+                                split_mask |= (mask_t)1 << i;
+                                if ((mask >> i) & 0b1) {
+                                    index++;
+                                }
+                            }
+                            // Use adapted mask instead to completely fill data into one register
+                            reg_t vec = tsl::loadu< ps >(myState.data_ptr);
+                            vec = tsl::maskz_mov< ps >(mask, tsl::mask_binary_and(mask, split_mask));
+                            tsl::storeu< ps >(data, vec);
+
+                            // Replace mask with inverse of adapted mask to get remaining elements and adapt dataptr
+                            mask_t new_mask = tsl::mask_binary_and(mask, tsl::mask_binary_not(split_mask))
+                            *myState.bitlist_ptr = (mask_t)(new_mask >> index);
+                            myState.data_ptr += index;
+                        }
+                        // Valid data fits into register with mask
+                        else{
+                            reg_t vec = tsl::loadu< ps >(myState.data_ptr);
+                            vec = tsl::maskz_mov< ps >(mask, vec);
+                            tsl::storeu< ps >(data, vec);
+
+                            myState.bitlist_ptr++;
+                            myState.data_ptr += element_count;
+                        }
+                    }
+                    reg_t vec = tsl::loadu< ps >(start);
                     reg_t result = Operator< ps, tsl::workaround>::apply(vec);
                     tsl::storeu< ps >(myState.result_ptr, result);
-
                     myState.result_ptr += element_count;
-                    myState.p_Data1Ptr += element_count;
                 }
             }
         };
 
         static void flush(State& myState){
-            const base_t *end = myState.p_Data1Ptr + myState.p_CountData1;
+            const base_t *end = myState.data_ptr + myState.count;
             reg_t vec;
-            while(myState.p_Data1Ptr <= end){
-                if constexpr(std::is_scalar<decltype(Operator< ps, tsl::workaround>::apply(vec))>::value){
-                    *myState.result_ptr = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*myState.p_Data1Ptr++);
-                }else{
-                    *myState.result_ptr++ = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*myState.p_Data1Ptr++);
-                }
+            while(myState.data_ptr <= end){
+                *myState.result_ptr++ = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*myState.data_ptr++);
             }
         };
   };
