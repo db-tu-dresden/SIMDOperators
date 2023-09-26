@@ -8,7 +8,7 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     using mask_t = typename ps::imask_type;
     using offset_t = typename ps::offset_base_type;
 
-    size_t mask_count = 1 + ((data_count - 1) / (sizeof(mask_t)*8));
+    size_t mask_count = 1 + ((data_count - 1) / ps::vector_element_count());
 
     base_t* vec_ref = reinterpret_cast<base_t*>(std::malloc(data_count*sizeof(base_t)));
     base_t* vec_test = reinterpret_cast<base_t*>(std::malloc(data_count*sizeof(base_t)));
@@ -22,10 +22,9 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
 
     // Random number generator
     auto seed = std::time(nullptr);
-    std::cout << "seed:" << seed << "\n----------------------------------------------" << std::endl;
     std::mt19937 rng(seed);
     std::uniform_int_distribution<base_t> dist(1, std::numeric_limits<base_t>::max());
-    std::uniform_int_distribution<base_t> dist_mask(0, std::numeric_limits<mask_t>::max());
+    std::uniform_int_distribution<base_t> dist_mask(0, (1ULL << ps::vector_element_count()) - 1);
 
     // Fill memory with test data
     base_t* temp_vec = vec_ref;
@@ -41,26 +40,11 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     }
     std::memcpy(mask_test, mask_ref, mask_count*sizeof(mask_t));
     
-    // Ref Value
+    // Ref Value - TODO: use different implementation ?
     typename tuddbs::calc_unary<ps, Operator>::State_bitlist state_ref = {.result_ptr = ref_result, .data_ptr = vec_ref,.bitlist_ptr = mask_ref, .count = data_count};
     tuddbs::calc_unary<ps, Operator>::flush(state_ref);
 
-    // Mal anschauen ob ich das auch so hinbekomme, dann
-    // temp_vec = vec_ref;
-    // base_t* temp_ref = ref_result;
-    // temp_mask = mask_ref;
-    // while(temp_mask < (mask_ref + mask_count)){
-    //     for(size_t i = 0; i < sizeof(mask_t)*8; i++){
-    //         mask_t mask_temp = *temp_mask++;
-    //         if((mask_temp >> i) & 0b1){
-    //             *temp_ref++ = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*temp_vec);
-    //         }
-    //         temp_vec++;
-    //     }
-    // }
-
     // Begin test
-    std::cout << "Begin Test" << std::endl;
     typename tuddbs::calc_unary<ps, Operator>::State_bitlist state = {.result_ptr = test_result, .data_ptr = vec_test,.bitlist_ptr = mask_test, .count = batch_size};
     while((state.data_ptr - vec_test + ps::vector_element_count()) < data_count){
         tuddbs::calc_unary<ps, Operator>{}(state);
@@ -77,11 +61,8 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     temp_vec = test_result;
     temp_ref = ref_result;
     while(temp_ref < (ref_result + data_count)){
-        //if(*temp_ref != *temp_vec) std::cout << *temp_ref << " == " << *temp_vec << std::endl;
-        //std::cout << *temp_ref << " == " << *temp_vec << std::endl;
         allOk &= (*temp_ref++ == *temp_vec++);
     }
-    std::cout << "Result: " << allOk << std::endl;
 
     
     std::free(test_result);
@@ -95,32 +76,32 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
 
 int main()
 {
-    const int count = 8*2020;
+    const int count = 10000;
     bool allOk = true;
     std::cout << "Testing calc_unary...\n";
     std::cout.flush();
     // INTEL - AVX2
     {
-        using ps = typename tsl::simd<uint32_t, tsl::avx2>;
+        using ps = typename tsl::simd<uint64_t, tsl::avx2>;
         const size_t batch_size = 2 * ps::vector_element_count();
 
         allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
     }
     // INTEL - SSE
-    // {
-    //     using ps = typename tsl::simd<uint16_t, tsl::sse>;
-    //     const size_t batch_size = ps::vector_element_count();
+    {
+        using ps = typename tsl::simd<uint16_t, tsl::sse>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
-    // }
+        allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
+    }
     // INTEL - SCALAR
-    // {
-    //     using ps = typename tsl::simd<uint64_t, tsl::scalar>;
-    //     const size_t batch_size = ps::vector_element_count();
+    {
+        using ps = typename tsl::simd<uint64_t, tsl::scalar>;
+        const size_t batch_size = ps::vector_element_count();
 
-    //     allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
-    // }
+        allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
+    }
     
-    //std::cout << "Result: " << allOk << std::endl;
+    std::cout << "Result: " << allOk << std::endl;
     return 0;
 }

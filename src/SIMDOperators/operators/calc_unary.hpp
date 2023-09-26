@@ -72,81 +72,62 @@ namespace tuddbs {
         void operator()(State_bitlist& myState){
             State_bitlist backup = myState;
             size_t const element_count = ps::vector_element_count();
-            size_t const mask_size = sizeof(mask_t) * 8;
-            const int mask_count = 1 + ((myState.count - 1) / (sizeof(mask_t)*8));
+            const int mask_count = 1 + ((myState.count - 1) / element_count);
 
             const base_t *end = myState.data_ptr + myState.count;
             const mask_t *mask_end = myState.bitlist_ptr + mask_count;
 
-            if constexpr(element_count < mask_size){
-                // darauf achten, dass zuerst die relevanten bits verwendet werden (Stichwort: packed )
-            }else{
-                base_t* data = reinterpret_cast<base_t*>(std::malloc(element_count*sizeof(base_t)));
-                base_t* start = data;
-                while(myState.data_ptr <= (end - element_count)){
-                    data = start;
-                    int mask_pop = 0;
-                    while(mask_pop < element_count){
-                        mask_t mask = *myState.bitlist_ptr;
-                        int old_count = mask_pop;
-                        mask_pop += tsl::mask_population_count< ps >(mask);
-                        std::cout << "mask_pop: " << mask_pop << std::endl;
-                        // If all masks combined can not fill one register, flush and update state
-                        if(myState.bitlist_ptr > mask_end && mask_pop < element_count){
-                            std::cout << "no load possible -> flushing" << std::endl;
-                            flush(backup);
-                            myState = backup;
-                            return;
-                        }
-                        // mask_pop is greater than element count -> split mask so data fits again
-                        if(mask_pop > element_count){
-                            // Find index where to split the mask
-                            size_t index = 0;
-                            mask_t split_mask = 0;
-                            for (size_t i = 0; index < mask_size && i < element_count - old_count; index++) {
-                                split_mask |= (mask_t)1 << index;
-                                if ((mask >> index) & 0b1) {
-                                    i++;
-                                }
-                            }
-                            // Use adapted mask instead to completely fill data into one register
-                            mask_t new_mask = tsl::mask_binary_and< ps >(mask, split_mask);
-                            reg_t vec_temp = tsl::loadu< ps >(myState.data_ptr);
-
-                            // std::cout << "data: [";
-                            // for(int i = 0; i < element_count; i++){
-                            //     std::cout << start[i] << ", ";
-                            // }
-                            // std::cout << "]" << std::endl;
-
-                            tsl::compress_store< ps >(new_mask, data, vec_temp);
-
-                            std::bitset<8> b(mask);
-                            std::bitset<8> i(new_mask);
-                            
-                            // Replace mask with inverse of adapted mask to get remaining elements and adapt dataptr
-                            new_mask = tsl::mask_binary_and< ps >(mask, tsl::mask_binary_not< ps >(split_mask));
-                            std::bitset<8> n(new_mask);
-                            std::cout << "IF mask: " << b << ", mask_split: " << i << ", new_mask: " << n << std::endl;
-                            *myState.bitlist_ptr = new_mask;
-                        }
-                        // Valid data fits into register with mask
-                        else{
-                            tsl::compress_store< ps >(mask, data, tsl::loadu< ps >(myState.data_ptr));
-                            myState.bitlist_ptr++;
-                            myState.data_ptr += element_count;
-
-                            data += tsl::mask_population_count< ps >(mask);
-                        }
+            base_t* data = reinterpret_cast<base_t*>(std::malloc(element_count*sizeof(base_t)));
+            base_t* start = data;
+            while(myState.data_ptr <= (end - element_count)){
+                data = start;
+                int mask_pop = 0;
+                while(mask_pop < element_count){
+                    mask_t mask = *myState.bitlist_ptr;
+                    int old_count = mask_pop;
+                    mask_pop += tsl::mask_population_count< ps >(mask);
+                    // If all masks combined can not fill one register, flush and update state
+                    if(myState.bitlist_ptr > mask_end && mask_pop < element_count){
+                        flush(backup);
+                        myState = backup;
+                        return;
                     }
-                    reg_t vec = tsl::loadu< ps >(start);
-                    reg_t result = Operator< ps, tsl::workaround>::apply(vec);
-                    tsl::storeu< ps >(myState.result_ptr, result);
-                    myState.result_ptr += element_count;
-                    backup = myState;
+                    // mask_pop is greater than element count -> split mask so data fits again
+                    if(mask_pop > element_count){
+                        // Find index where to split the mask
+                        size_t index = 0;
+                        mask_t split_mask = 0;
+                        for (size_t i = 0; index < sizeof(mask_t) * 8 && i < element_count - old_count; index++) {
+                            split_mask |= (mask_t)1 << index;
+                            if ((mask >> index) & 0b1) {
+                                i++;
+                            }
+                        }
+                        // Use adapted mask instead to completely fill data into one register
+                        mask_t new_mask = tsl::mask_binary_and< ps >(mask, split_mask);
+                        reg_t vec_temp = tsl::loadu< ps >(myState.data_ptr);
+                        tsl::compress_store< ps >(new_mask, data, vec_temp);
+
+                        // Replace mask with inverse of adapted mask to get remaining elements and adapt dataptr
+                        new_mask = tsl::mask_binary_and< ps >(mask, tsl::mask_binary_not< ps >(split_mask));
+                        *myState.bitlist_ptr = new_mask;
+                    }
+                    // Valid data fits into register with mask
+                    else{
+                        tsl::compress_store< ps >(mask, data, tsl::loadu< ps >(myState.data_ptr));
+                        myState.bitlist_ptr++;
+                        myState.data_ptr += element_count;
+
+                        data += tsl::mask_population_count< ps >(mask);
+                    }
                 }
-                std::free(start);
+                reg_t vec = tsl::loadu< ps >(start);
+                reg_t result = Operator< ps, tsl::workaround>::apply(vec);
+                tsl::storeu< ps >(myState.result_ptr, result);
+                myState.result_ptr += element_count;
+                backup = myState;
             }
+            std::free(start);
         };
 
         static void flush(State& myState){
@@ -157,12 +138,12 @@ namespace tuddbs {
         };
 
         static void flush(State_bitlist& myState){
-            const int mask_count = 1 + ((myState.count - 1) / (sizeof(mask_t)*8));
+            const int mask_count = 1 + ((myState.count - 1) / ps::vector_element_count());
             const mask_t* end = myState.bitlist_ptr + mask_count;
 
             while(myState.bitlist_ptr < end){
                 mask_t mask = *myState.bitlist_ptr++;
-                for(size_t i = 0; i < sizeof(mask_t)*8; i++){
+                for(size_t i = 0; i < ps::vector_element_count(); i++){
                     if((mask >> i) & 0b1){
                         *myState.result_ptr++ = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*myState.data_ptr);
                     }
