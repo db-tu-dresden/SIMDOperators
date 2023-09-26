@@ -6,7 +6,6 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     using base_t = typename ps::base_type;
     using reg_t = typename ps::register_type;
     using mask_t = typename ps::imask_type;
-    using offset_t = typename ps::offset_base_type;
 
     size_t mask_count = 1 + ((data_count - 1) / ps::vector_element_count());
 
@@ -24,7 +23,7 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     auto seed = std::time(nullptr);
     std::mt19937 rng(seed);
     std::uniform_int_distribution<base_t> dist(1, std::numeric_limits<base_t>::max());
-    std::uniform_int_distribution<base_t> dist_mask(0, (1ULL << ps::vector_element_count()) - 1);
+    std::uniform_int_distribution<mask_t> dist_mask(0, (1ULL << ps::vector_element_count()) - 1);
 
     // Fill memory with test data
     base_t* temp_vec = vec_ref;
@@ -64,7 +63,6 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
         allOk &= (*temp_ref++ == *temp_vec++);
     }
 
-    
     std::free(test_result);
     std::free(ref_result);
     std::free(vec_ref);
@@ -82,26 +80,30 @@ int main()
     std::cout.flush();
     // INTEL - AVX2
     {
-        using ps = typename tsl::simd<uint64_t, tsl::avx2>;
-        const size_t batch_size = 2 * ps::vector_element_count();
+        using ps_fit = typename tsl::simd<uint32_t, tsl::avx2>;
+        using ps_no_fit = typename tsl::simd<uint64_t, tsl::avx2>;
 
-        allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
+        allOk &= test_calc_unary<ps_fit, tsl::functors::inv>(ps_fit::vector_element_count(), count);
+        allOk &= test_calc_unary<ps_no_fit, tsl::functors::inv>(ps_no_fit::vector_element_count(), count);
+        std::cout << "AVX2 Result: " << allOk << std::endl;
     }
     // INTEL - SSE
     {
-        using ps = typename tsl::simd<uint16_t, tsl::sse>;
-        const size_t batch_size = ps::vector_element_count();
+        using ps_fit = typename tsl::simd<uint16_t, tsl::sse>;
+        using ps_no_fit = typename tsl::simd<uint64_t, tsl::sse>;
 
-        allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
+        allOk &= test_calc_unary<ps_fit, tsl::functors::inv>(ps_fit::vector_element_count(), count);
+        allOk &= test_calc_unary<ps_no_fit, tsl::functors::inv>(ps_no_fit::vector_element_count(), count);
+        std::cout << "SSE Result: " << allOk << std::endl;
     }
     // INTEL - SCALAR
     {
         using ps = typename tsl::simd<uint64_t, tsl::scalar>;
-        const size_t batch_size = ps::vector_element_count();
 
-        allOk &= test_calc_unary<ps, tsl::functors::inv>(batch_size, count);
+        allOk &= test_calc_unary<ps, tsl::functors::inv>(ps::vector_element_count(), count);
+        std::cout << "Scalar Result: " << allOk << std::endl;
     }
     
-    std::cout << "Result: " << allOk << std::endl;
+    std::cout << "Complete Result: " << allOk << std::endl;
     return 0;
 }
