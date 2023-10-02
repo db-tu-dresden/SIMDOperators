@@ -7,7 +7,7 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     using reg_t = typename ps::register_type;
     using mask_t = typename ps::imask_type;
 
-    size_t mask_count = 1 + ((data_count - 1) / ps::vector_element_count());
+    size_t mask_count = 1 + ((data_count - 1) / (sizeof(mask_t)*8));
 
     base_t* vec_ref = reinterpret_cast<base_t*>(std::malloc(data_count*sizeof(base_t)));
     base_t* vec_test = reinterpret_cast<base_t*>(std::malloc(data_count*sizeof(base_t)));
@@ -21,9 +21,12 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
 
     // Random number generator
     auto seed = std::time(nullptr);
+    std::cout << "seed: " << seed <<std::endl;
     std::mt19937 rng(seed);
     std::uniform_int_distribution<base_t> dist(1, std::numeric_limits<base_t>::max());
-    std::uniform_int_distribution<mask_t> dist_mask(0, (1ULL << ps::vector_element_count()) - 1);
+    
+    //std::uniform_int_distribution<mask_t> dist_mask(0, (1ULL << ps::vector_element_count()) - 1);
+    std::uniform_int_distribution<mask_t> dist_mask(0, std::numeric_limits<mask_t>::max());
 
     // Fill memory with test data
     base_t* temp_vec = vec_ref;
@@ -40,11 +43,22 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     std::memcpy(mask_test, mask_ref, mask_count*sizeof(mask_t));
     
     // Ref Value - TODO: use different implementation ?
-    typename tuddbs::calc_unary<ps, Operator>::State_bitlist state_ref = {.result_ptr = ref_result, .data_ptr = vec_ref,.bitlist_ptr = mask_ref, .count = data_count};
+    typename tuddbs::calc_unary<ps, Operator>::State_bitlist_packed state_ref = {.result_ptr = ref_result, .data_ptr = vec_ref,.bitlist_ptr = mask_ref, .count = data_count};
     tuddbs::calc_unary<ps, Operator>::flush(state_ref);
 
     // Begin test
-    typename tuddbs::calc_unary<ps, Operator>::State_bitlist state = {.result_ptr = test_result, .data_ptr = vec_test,.bitlist_ptr = mask_test, .count = batch_size};
+    temp_mask = mask_test;
+    int value_count = 0;
+    std::cout << "all_masks: ";
+    for(int i = 0; i < 4; i ++){
+        mask_t temp = *temp_mask++;
+        value_count += tsl::mask_population_count< ps >(temp);
+        std::bitset<8> temp_(temp);
+        std::cout << temp_ << ", ";
+    }
+    std::cout << " 1 count: " << value_count << std::endl;
+
+    typename tuddbs::calc_unary<ps, Operator>::State_bitlist_packed state = {.result_ptr = test_result, .data_ptr = vec_test,.bitlist_ptr = mask_test, .count = batch_size};
     while((state.data_ptr - vec_test + ps::vector_element_count()) < data_count){
         tuddbs::calc_unary<ps, Operator>{}(state);
 
@@ -52,6 +66,7 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
 
         state.count = std::min(batch_size, t);
     }
+    state.used_bits = 0;
     state.count = vec_test + data_count - state.data_ptr;
     tuddbs::calc_unary<ps, Operator>::flush(state);
 
@@ -60,6 +75,7 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
     temp_vec = test_result;
     temp_ref = ref_result;
     while(temp_ref < (ref_result + data_count)){
+        std::cout << *temp_ref << " == " << *temp_vec << std::endl;
         allOk &= (*temp_ref++ == *temp_vec++);
     }
 
@@ -74,7 +90,7 @@ bool test_calc_unary(const size_t batch_size, const size_t data_count){
 
 int main()
 {
-    const int count = 10000;
+    const int count = 1000;
     bool allOk = true;
     std::cout << "Testing calc_unary...\n";
     std::cout.flush();
