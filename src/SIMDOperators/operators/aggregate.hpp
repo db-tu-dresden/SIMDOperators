@@ -24,7 +24,7 @@
 
 namespace tuddbs {
     
-    template< typename ps , template <typename ...> typename Operator>
+    template< typename ps , template <typename ...> typename Op_h, template <typename ...> typename Op>
     class aggregate{
         using base_t = typename ps::base_type;
         using reg_t = typename ps::register_type;
@@ -32,53 +32,53 @@ namespace tuddbs {
         public:
         struct State{
             base_t result;
-            base_t* data_ptr;   // anstatt das "const" zu entfernen vllt ne bool condition, oder vllt eine andere alternative?
+            base_t const* data_ptr;
             size_t count;
-            bool value_there = false;   // Kann auch manchmal nur flush aufgerufen werden? wenn nein: ist das bool nicht notwendig
+            reg_t temp;
+            const bool fit_in_reg = (count >= ps::vector_element_count()); // Wie gehe ich damit um, wenn nicht genug elemente vorhanden sind um sie zu laden.
+            State(base_t const* ptr, size_t cnt) : data_ptr(ptr), count(cnt), temp(tsl::loadu<ps>(ptr)){
+                if(fit_in_reg){
+                    data_ptr += ps::vector_element_count();
+                    count -= ps::vector_element_count();
+                }
+            }
         };
 
         void operator()(State& myState){
-            if constexpr(std::is_same_v<ps, typename tsl::simd<typename ps::base_type, tsl::scalar>>){
-                flush(myState);
-                myState.value_there = true;
-                return;
-            }
             size_t element_count = ps::vector_element_count();
-
             const base_t *end = myState.data_ptr + myState.count;
 
             while(myState.data_ptr <= (end - element_count)){
                 reg_t vec = tsl::loadu< ps >(myState.data_ptr);
-
-                myState.result = Operator< ps, tsl::workaround>::apply(vec);
-                myState.data_ptr += element_count - 1;
-                *myState.data_ptr = myState.result;
+                myState.temp = Op< ps, tsl::workaround>::apply(myState.temp, vec);
+                myState.data_ptr += element_count;
             }
-            myState.value_there = true;
-            
         };
 
         static void flush(State& myState){
-            flush_helper<ps, Operator>::flush(myState);
+            flush_helper<ps, Op_h, Op>::flush(myState);
         };
 
         private:
-        template<typename ps_helper, template<typename...> typename Op>
+        template<typename ps_helper, template<typename...> typename Op_horizontal, template<typename...> typename Op_normal>
         struct flush_helper{
-            static void flush(typename aggregate<ps_helper, Op>::State& myState){
-                static_assert(true, "No flush implementation for this operator");
-            }
-        };
+            static void flush(typename aggregate<ps_helper, Op_horizontal, Op_normal>::State& myState){
+                using scalar_t = typename tsl::simd<typename ps::base_type, tsl::scalar>;
+                using scalar_reg_t = typename scalar_t::register_type;
 
-        template<typename ps_helper>
-        struct flush_helper<ps_helper, tsl::functors::hor>{
-            static void flush(typename aggregate<ps_helper, tsl::functors::hor>::State& myState){
-                const base_t *end = myState.data_ptr + myState.count;
-                base_t temp = 0;
-                while(myState.data_ptr <= end){
-                    temp |= *myState.data_ptr++;
+                const base_t* end = myState.data_ptr + myState.count;
+                base_t result;
+
+                if(myState.fit_in_reg){
+                    result = Op_horizontal<ps, tsl::workaround>::apply(myState.temp);
+                }else{
+                    result = *myState.data_ptr++;
                 }
-                (myState.value_there)? myState.result |= temp : myState.result = temp;
+
+                while(myState.data_ptr < end){
+                    result = Op_normal<scalar_t, tsl::workaround>::apply((scalar_reg_t)result, (scalar_reg_t)*myState.data_ptr++);
+                }
+                myState.result = result;
             }
         };
   };
