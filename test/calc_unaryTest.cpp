@@ -1,5 +1,6 @@
 #include "../src/SIMDOperators/operators/calc_unary.hpp"
 #include <random>
+#include <iostream>
 
 template< typename ps , template <typename ...> typename Operator, typename StateType>
 bool test_calc_unary(const size_t batch_size, const size_t data_count){
@@ -124,28 +125,28 @@ bool test_calc_unary_wrapper(const size_t batch_size, const size_t data_count){
 int main()
 {
     
-    const int count = 16;
+    const int count = 10000;
     bool allOk = true;
     std::cout << "Testing calc_unary...\n";
     std::cout.flush();
-    // // INTEL - AVX512
-    // {
-    //     using ps_fit = typename tsl::simd<uint64_t, tsl::avx512>;
-    //     using ps_no_fit = typename tsl::simd<uint32_t, tsl::avx512>;
+    // INTEL - AVX512
+    {
+        using ps_fit = typename tsl::simd<uint64_t, tsl::avx512>;
+        using ps_no_fit = typename tsl::simd<uint32_t, tsl::avx512>;
         
-    //     allOk &= test_calc_unary_wrapper<ps_fit, tsl::functors::inv>(ps_fit::vector_element_count(), count);
-    //     allOk &= test_calc_unary_wrapper<ps_no_fit, tsl::functors::inv>(ps_no_fit::vector_element_count(), count);
-    //     std::cout << "AVX512 Result: " << allOk << std::endl;
-    // }
-    // // INTEL - AVX2
-    // {
-    //     using ps_fit = typename tsl::simd<uint32_t, tsl::avx2>;
-    //     using ps_no_fit = typename tsl::simd<uint64_t, tsl::avx2>;
+        allOk &= test_calc_unary_wrapper<ps_fit, tsl::functors::inv>(ps_fit::vector_element_count(), count);
+        allOk &= test_calc_unary_wrapper<ps_no_fit, tsl::functors::inv>(ps_no_fit::vector_element_count(), count);
+        std::cout << "AVX512 Result: " << allOk << std::endl;
+    }
+    // INTEL - AVX2
+    {
+        using ps_fit = typename tsl::simd<uint32_t, tsl::avx2>;
+        using ps_no_fit = typename tsl::simd<uint64_t, tsl::avx2>;
         
-    //     allOk &= test_calc_unary_wrapper<ps_fit, tsl::functors::inv>(ps_fit::vector_element_count(), count);
-    //     allOk &= test_calc_unary_wrapper<ps_no_fit, tsl::functors::inv>(ps_no_fit::vector_element_count(), count);
-    //     std::cout << "AVX2 Result: " << allOk << std::endl;
-    // }
+        allOk &= test_calc_unary_wrapper<ps_fit, tsl::functors::inv>(ps_fit::vector_element_count(), count);
+        allOk &= test_calc_unary_wrapper<ps_no_fit, tsl::functors::inv>(ps_no_fit::vector_element_count(), count);
+        std::cout << "AVX2 Result: " << allOk << std::endl;
+    }
     // INTEL - SSE
     {
         using ps_fit = typename tsl::simd<uint16_t, tsl::sse>;
