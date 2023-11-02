@@ -1,7 +1,7 @@
 #include "../src/SIMDOperators/operators/aggregate.hpp"
 #include <random>
 
-template< typename ps , template <typename ...> typename Op_h, template <typename ...> typename Op>
+template< typename ps , template <typename ...> typename Op, template <typename ...> typename Op_h>
 bool test_aggregate(const size_t batch_size, const size_t data_count){
     using base_t = typename ps::base_type;
     using mask_t = typename ps::imask_type;
@@ -24,25 +24,22 @@ bool test_aggregate(const size_t batch_size, const size_t data_count){
     // Create States
     size_t test_size;
     (data_count < ps::vector_element_count())? test_size = data_count : test_size = batch_size;
-    typename tuddbs::aggregate<ps, Op_h, Op>::State state_ref(vec_ref, data_count);
-    typename tuddbs::aggregate<ps, Op_h, Op>::State state_test(vec_test, test_size);
+    typename tuddbs::aggregate<ps, Op, Op_h>::State state_ref(vec_ref, data_count);
+    typename tuddbs::aggregate<ps, Op, Op_h>::State state_test(vec_test, test_size);
 
     // Testing
-    tuddbs::aggregate<ps, Op_h, Op>::flush(state_ref);
+    tuddbs::aggregate<ps, Op, Op_h>::flush(state_ref);
     
     while((state_test.data_ptr - vec_test + ps::vector_element_count()) < data_count){
-        tuddbs::aggregate<ps, Op_h, Op>{}(state_test);
+        tuddbs::aggregate<ps, Op, Op_h>{}(state_test);
         const size_t t = vec_test + data_count - state_test.data_ptr;
         state_test.count = std::min(batch_size, t);
     }
     state_test.count = vec_test + data_count - state_test.data_ptr;
-    tuddbs::aggregate<ps, Op_h, Op>::flush(state_test);
+    tuddbs::aggregate<ps, Op, Op_h>::flush(state_test);
 
     std::free(vec_ref);
     std::free(vec_test);
-
-    std::cout << "Ref: " << state_ref.result << "\tTest: " << state_test.result << std::endl;
-
     return (state_ref.result == state_test.result);
 }
 
@@ -50,52 +47,53 @@ template<typename ps>
 bool test_aggregate_wrapper(const size_t batch_size, const size_t data_count){
     bool allOk = true;
 
-    allOk &= test_aggregate<ps, tsl::functors::hor, tsl::functors::binary_or>(batch_size, data_count);
-    allOk &= test_aggregate<ps, tsl::functors::hadd, tsl::functors::add>(batch_size, data_count);
+    allOk &= test_aggregate<ps, tsl::functors::binary_or, tsl::functors::hor>(batch_size, data_count);
+    allOk &= test_aggregate<ps, tsl::functors::add, tsl::functors::hadd>(batch_size, data_count);
+    allOk &= test_aggregate<ps, tsl::functors::min, tsl::functors::hmin>(batch_size, data_count);
+    allOk &= test_aggregate<ps, tsl::functors::max, tsl::functors::hmax>(batch_size, data_count);
 
     return allOk;
 }
 
 int main()
 {
-    
-    const int count = 10000;
+    const int count = 100000;
     bool allOk = true;
     std::cout << "Testing aggregate...\n";
     std::cout.flush();
     // // INTEL - AVX512
-    // {
-    //     using ps_1 = typename tsl::simd<uint64_t, tsl::avx512>;
-    //     using ps_2 = typename tsl::simd<uint32_t, tsl::avx512>;
-        
-    //     allOk &= test_aggregate_wrapper<ps_1>(ps_1::vector_element_count(), count);
-    //     allOk &= test_aggregate_wrapper<ps_2>(ps_2::vector_element_count(), count);
-    //     std::cout << "AVX512 Result: " << allOk << std::endl;
-    // }
+    {
+        using ps_1 = typename tsl::simd<uint64_t, tsl::avx512>;
+        using ps_2 = typename tsl::simd<uint32_t, tsl::avx512>;
+        bool avx512_result = test_aggregate_wrapper<ps_1>(ps_1::vector_element_count(), count);
+        avx512_result &= test_aggregate_wrapper<ps_2>(ps_2::vector_element_count(), count);
+        allOk &= avx512_result;
+        std::cout << "AVX512 Result: " << allOk << std::endl;
+    }
     // INTEL - AVX2
     {
         using ps_1 = typename tsl::simd<uint32_t, tsl::avx2>;
         using ps_2 = typename tsl::simd<uint64_t, tsl::avx2>;
-        
-        allOk &= test_aggregate_wrapper<ps_1>(ps_1::vector_element_count(), count);
-        allOk &= test_aggregate_wrapper<ps_2>(ps_2::vector_element_count(), count);
-        std::cout << "AVX2 Result: " << allOk << std::endl;
+        bool avx2_result = test_aggregate_wrapper<ps_1>(ps_1::vector_element_count(), count);
+        avx2_result &= test_aggregate_wrapper<ps_2>(ps_2::vector_element_count(), count);
+        allOk &= avx2_result;
+        std::cout << "AVX2 Result: " << avx2_result << std::endl;
     }
     // INTEL - SSE
     {
         using ps_1 = typename tsl::simd<uint16_t, tsl::sse>;
         using ps_2 = typename tsl::simd<uint64_t, tsl::sse>;
-
-        allOk &= test_aggregate_wrapper<ps_1>(ps_1::vector_element_count(), count);
-        allOk &= test_aggregate_wrapper<ps_2>(ps_2::vector_element_count(), count);
-        std::cout << "SSE Result: " << allOk << std::endl;
+        bool sse_result = test_aggregate_wrapper<ps_1>(ps_1::vector_element_count(), count);
+        sse_result &= test_aggregate_wrapper<ps_2>(ps_2::vector_element_count(), count);
+        allOk &= sse_result;
+        std::cout << "SSE Result: " << sse_result << std::endl;
     }
     // INTEL - SCALAR
     {
         using ps = typename tsl::simd<uint64_t, tsl::scalar>;
-
-        allOk &= test_aggregate_wrapper<ps>(ps::vector_element_count(), count);
-        std::cout << "Scalar Result: " << allOk << std::endl;
+        bool scalar_result = test_aggregate_wrapper<ps>(ps::vector_element_count(), count);
+        allOk &= scalar_result;
+        std::cout << "Scalar Result: " << scalar_result << std::endl;
     }
     
     std::cout << "Complete Result: " << allOk << std::endl;

@@ -23,8 +23,7 @@
 #include <cassert>
 
 namespace tuddbs {
-    
-    template< typename ps , template <typename ...> typename Op_h, template <typename ...> typename Op>
+    template< typename ps , template <typename ...> typename Op, template <typename ...> typename Op_h>
     class aggregate{
         using base_t = typename ps::base_type;
         using reg_t = typename ps::register_type;
@@ -35,7 +34,7 @@ namespace tuddbs {
             base_t const* data_ptr;
             size_t count;
             reg_t temp;
-            const bool fit_in_reg = (count >= ps::vector_element_count()); // Wie gehe ich damit um, wenn nicht genug elemente vorhanden sind um sie zu laden.
+            const bool fit_in_reg = (count >= ps::vector_element_count());
             State(base_t const* ptr, size_t cnt) : data_ptr(ptr), count(cnt), temp(tsl::loadu<ps>(ptr)){
                 if(fit_in_reg){
                     data_ptr += ps::vector_element_count();
@@ -56,30 +55,22 @@ namespace tuddbs {
         };
 
         static void flush(State& myState){
-            flush_helper<ps, Op_h, Op>::flush(myState);
-        };
+            using scalar_t = typename tsl::simd<typename ps::base_type, tsl::scalar>;
+            using scalar_reg_t = typename scalar_t::register_type;
 
-        private:
-        template<typename ps_helper, template<typename...> typename Op_horizontal, template<typename...> typename Op_normal>
-        struct flush_helper{
-            static void flush(typename aggregate<ps_helper, Op_horizontal, Op_normal>::State& myState){
-                using scalar_t = typename tsl::simd<typename ps::base_type, tsl::scalar>;
-                using scalar_reg_t = typename scalar_t::register_type;
+            const base_t* end = myState.data_ptr + myState.count;
+            base_t result;
 
-                const base_t* end = myState.data_ptr + myState.count;
-                base_t result;
-
-                if(myState.fit_in_reg){
-                    result = Op_horizontal<ps, tsl::workaround>::apply(myState.temp);
-                }else{
-                    result = *myState.data_ptr++;
-                }
-
-                while(myState.data_ptr < end){
-                    result = Op_normal<scalar_t, tsl::workaround>::apply((scalar_reg_t)result, (scalar_reg_t)*myState.data_ptr++);
-                }
-                myState.result = result;
+            if(myState.fit_in_reg){
+                result = Op_h<ps, tsl::workaround>::apply(myState.temp);
+            }else{
+                result = *myState.data_ptr++;
             }
+
+            while(myState.data_ptr < end){
+                result = Op<scalar_t, tsl::workaround>::apply((scalar_reg_t)result, (scalar_reg_t)*myState.data_ptr++);
+            }
+            myState.result = result;
         };
   };
 };//namespace tuddbs
