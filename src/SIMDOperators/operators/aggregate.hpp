@@ -19,7 +19,7 @@
 #ifndef SRC_OPERATORS_AGGREGATE_HPP
 #define SRC_OPERATORS_AGGREGATE_HPP
 
-#include "/home/dertuchi/work/TSL/generated_tsl/generator_output/include/tslintrin.hpp"
+#include <tslintrin.hpp>
 #include <cassert>
 
 namespace tuddbs {

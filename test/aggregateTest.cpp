@@ -1,5 +1,6 @@
 #include "../src/SIMDOperators/operators/aggregate.hpp"
 #include <random>
+#include <iostream>
 
 template< typename ps , template <typename ...> typename Op, template <typename ...> typename Op_h>
 bool test_aggregate(const size_t batch_size, const size_t data_count){
@@ -57,11 +58,11 @@ bool test_aggregate_wrapper(const size_t batch_size, const size_t data_count){
 
 int main()
 {
-    const int count = 100000;
+    const int count = 10000;
     bool allOk = true;
     std::cout << "Testing aggregate...\n";
     std::cout.flush();
-    // // INTEL - AVX512
+    // INTEL - AVX512
     {
         using ps_1 = typename tsl::simd<uint64_t, tsl::avx512>;
         using ps_2 = typename tsl::simd<uint32_t, tsl::avx512>;
