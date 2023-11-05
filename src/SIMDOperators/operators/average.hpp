@@ -19,16 +19,16 @@
 #ifndef SRC_OPERATORS_AVERAGE_HPP
 #define SRC_OPERATORS_AVERAGE_HPP
 
-#include "/home/tucholke/work/TSL/generated_tsl/generator_output/include/tslintrin.hpp"
+#include <tslintrin.hpp>
 #include "aggregate.hpp"
 #include <cassert>
 
 namespace tuddbs {
-    template< typename ps, typename result_t = float>
+    template< typename ps, typename result_type = typename ps::base_type>
     class average{
         using base_t = typename ps::base_type;
         using reg_t = typename ps::register_type;
-        // using result_t = typename std::conditional<std::is_integral<base_t>::value, float, base_t>::type;
+        using result_t = typename std::conditional<std::is_integral<result_type>::value, float, result_type>::type;
 
         public:
         struct State{

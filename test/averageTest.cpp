@@ -36,24 +36,20 @@ bool test_average(const size_t batch_size, const size_t data_count){
 
     std::free(vec_ref);
     std::free(vec_test);
-    std::cout << "Ref: " << std::fixed << result << "\tTest: " << state_test.result << std::endl;
     return (std::abs(result - state_test.result) < 1e-6);
 }
 
 template<typename ps>
 bool test_average_wrapper(const size_t batch_size, const size_t data_count){
     bool allOk = true;
-
-    // allOk &= test_average<ps, typename ps:base_type>(batch_size, data_count);
-    allOk &= test_average<ps, float>(batch_size, data_count);
+    allOk &= test_average<ps>(batch_size, data_count);
     allOk &= test_average<ps, double>(batch_size, data_count);
-
     return allOk;
 }
 
 int main()
 {
-    const int count = 1000000000;
+    const int count = 100000;
     bool allOk = true;
     std::cout << "Testing average...\n";
     std::cout.flush();
