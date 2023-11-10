@@ -32,12 +32,14 @@ namespace tuddbs {
         using offset_t = typename ps::offset_base_type;
 
         public:
+        // Struct for default calc_unary over all elements
         struct State{
             base_t* result_ptr;
             base_t const* data_ptr;
             size_t count;
         };
 
+        // Struct for filtering with unpacked bitlist
         struct State_bitlist{
             base_t* result_ptr;
             base_t const* data_ptr;
@@ -45,6 +47,7 @@ namespace tuddbs {
             size_t count;
         };
 
+        // Struct for filtering with packed bitlist
         struct State_bitlist_packed{
             base_t* result_ptr;
             base_t const* data_ptr;
@@ -52,6 +55,7 @@ namespace tuddbs {
             size_t count;
         };
 
+        // Struct for filtering with positionlist
         struct State_position_list{
             base_t* result_ptr;
             base_t const* data_ptr;
@@ -61,9 +65,9 @@ namespace tuddbs {
 
         void operator()(State& myState){
             size_t element_count = ps::vector_element_count();
-
             const base_t *end = myState.data_ptr + myState.count;
 
+            // Apply Operator on data and save result in myState.result.
             while(myState.data_ptr <= (end - element_count)){
                 reg_t vec = tsl::loadu< ps >(myState.data_ptr);
 
@@ -78,14 +82,13 @@ namespace tuddbs {
         void operator()(State_bitlist& myState){
             size_t const element_count = ps::vector_element_count();
             const base_t *end = myState.data_ptr + myState.count;
-            // To catch wrong masks
-            const mask_t shift = (1 << ps::vector_element_count()) - 1;
-
             while(myState.data_ptr <= (end - element_count)){
-                typename ps::mask_type mask = tsl::to_mask< ps >(*myState.bitlist_ptr++ & shift);
+                // create mask to find relevant elements
+                typename ps::mask_type mask = tsl::to_mask< ps >(*myState.bitlist_ptr++);
 
                 reg_t vec = tsl::loadu< ps >(myState.data_ptr);
                 reg_t temp = Operator< ps, tsl::workaround>::apply(vec);
+                // if mask bit is set use temp(data changed) else use vec(data unchanged)
                 reg_t result = tsl::blend< ps >(mask, vec, temp);
 
                 tsl::storeu<ps>(myState.result_ptr, result);
@@ -98,17 +101,18 @@ namespace tuddbs {
         void operator()(State_bitlist_packed& myState){
             size_t const element_count = ps::vector_element_count();
             const base_t *end = myState.data_ptr + myState.count;
-            const mask_t shift = (1 << ps::vector_element_count()) - 1;
-
+            const mask_t shift = (1 << element_count) - 1;
+            // Use while to iterate through 
             while(myState.data_ptr <= (end - element_count)){
                 mask_t mask = *myState.bitlist_ptr++;
+                // For loop to iterate through mask(bcs. packed mask)
                 for(int i = 0; i < sizeof(mask_t)*8; i += element_count){
                     typename ps::mask_type new_mask = tsl::to_mask< ps >((mask >> i) & shift);
 
                     reg_t vec = tsl::loadu< ps >(myState.data_ptr);
-                    reg_t temp = Operator< ps, tsl::workaround>::apply(vec);                    
+                    reg_t temp = Operator< ps, tsl::workaround>::apply(vec);
+                    // if mask bit is set use temp(data changed) else use vec(data unchanged)             
                     reg_t result = tsl::blend< ps >(new_mask, vec, temp);
-
                     tsl::storeu<ps>(myState.result_ptr, result);
 
                     myState.data_ptr += element_count;
@@ -143,11 +147,9 @@ namespace tuddbs {
         static void flush(State_bitlist& myState){
             const int mask_count = 1 + ((myState.count - 1) / ps::vector_element_count());
             const mask_t* end_mask = myState.bitlist_ptr + mask_count;
-            // To catch wrong masks
-            const mask_t shift = (1 << ps::vector_element_count()) - 1;
 
             while(myState.bitlist_ptr < end_mask){
-                mask_t mask = *myState.bitlist_ptr++ & shift;
+                mask_t mask = *myState.bitlist_ptr++;
                 for(size_t i = 0; i < ps::vector_element_count(); i++){
                     if((mask >> i) & 0b1){
                         *myState.result_ptr = Operator< tsl::simd<base_t, tsl::scalar>, tsl::workaround>::apply(*myState.data_ptr);
