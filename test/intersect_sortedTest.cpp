@@ -23,18 +23,29 @@ bool test_intersect_sorted(const size_t batch_size, const int v1_data_count, con
     //Random number generator
     auto seed = std::time(nullptr);
     std::mt19937 rng(seed);
-    std::uniform_int_distribution<base_t> dist(1, std::numeric_limits<base_t>::max());
     
     // Fill memory with sorted data
     std::set<base_t> set1, set2;
-    while(set1.size() < v1_data_count){
-        base_t value = dist(rng);
-        set1.insert(value);
-    }
-
-    while(set2.size() < v2_data_count){
-        base_t value = dist(rng);
-        set2.insert(value);
+    if constexpr(std::is_integral_v<base_t>){
+        std::uniform_int_distribution<base_t> dist(std::numeric_limits<base_t>::min(), std::numeric_limits<base_t>::max());
+        while(set1.size() < v1_data_count){
+            base_t value = dist(rng);
+            set1.insert(value);
+        }
+        while(set2.size() < v2_data_count){
+            base_t value = dist(rng);
+            set2.insert(value);
+        }
+    }else{
+        std::uniform_real_distribution<base_t> dist(std::numeric_limits<base_t>::min(), std::numeric_limits<base_t>::max());
+        while(set1.size() < v1_data_count){
+            base_t value = dist(rng);
+            set1.insert(value);
+        }
+        while(set2.size() < v2_data_count){
+            base_t value = dist(rng);
+            set2.insert(value);
+        }
     }
     std::vector<base_t> intersect;
     std::set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), std::back_inserter(intersect));
@@ -62,9 +73,6 @@ bool test_intersect_sorted(const size_t batch_size, const int v1_data_count, con
     bool allOk = true;
     for(int i = 0; i < result_count; i++){
         allOk &= (ref_out[i] == test_out[i]);
-        if(!allOk){
-            break;
-        }
     }
 
     free(v1);
@@ -75,169 +83,53 @@ bool test_intersect_sorted(const size_t batch_size, const int v1_data_count, con
     return allOk;
 }
 
-int main(){
-    const int v1_count = 100;
-    const int v2_count = 1000;
-    bool allOk;
-    std::cout << "Tesing intersect_sorted" << std::endl;
-    // INTEL - AVX512
-    {
-        using ps = typename tsl::simd<uint64_t, tsl::avx512>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX512 with uint64_t: ";
-        allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-
-    }{
-        using ps = typename tsl::simd<int32_t, tsl::avx512>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX512 with int32_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-
-    }{
-        using ps = typename tsl::simd<uint16_t, tsl::avx512>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX512 with uint16_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-    }{
-        using ps = typename tsl::simd<int8_t, tsl::avx512>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX512 with int8_t: ";
-        std::cout.flush();
-        bool allOk = test_intersect_sorted<ps>(batch_size, 20, 15);
-        allOk &= test_intersect_sorted<ps>(batch_size, 15, 20);
-        allOk &= test_intersect_sorted<ps>(batch_size, 20, 20);
-        std::cout << allOk << std::endl;
-    }
-    // INTEL AVX2
-    {
-        using ps = typename tsl::simd<uint64_t, tsl::avx2>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX2 with uint64_t: ";
-        allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-
-    }{
-        using ps = typename tsl::simd<int32_t, tsl::avx2>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX2 with int32_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-    }{
-        using ps = typename tsl::simd<uint16_t, tsl::avx2>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX2 with uint16_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-    }{
-        using ps = typename tsl::simd<int8_t, tsl::avx2>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-AVX2 with int8_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, 20, 15);
-        allOk &= test_intersect_sorted<ps>(batch_size, 15, 20);
-        allOk &= test_intersect_sorted<ps>(batch_size, 20, 20);
-        std::cout << allOk << std::endl;
-    }
-    // INTEL - SSE
-    {
-        using ps = typename tsl::simd<uint64_t, tsl::sse>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SSE with uint64_t: ";
-        allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-
-    }{
-        using ps = typename tsl::simd<int32_t, tsl::sse>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SSE with int32_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-    }{
-        using ps = typename tsl::simd<uint16_t, tsl::sse>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SSE with uint16_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-    }{
-        using ps = typename tsl::simd<int8_t, tsl::sse>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SSE with int8_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, 20, 15);
-        allOk &= test_intersect_sorted<ps>(batch_size, 15, 20);
-        allOk &= test_intersect_sorted<ps>(batch_size, 20, 20);
-        std::cout << allOk << std::endl;
-    }
-    // INTEL SCALAR
-    {
-        using ps = typename tsl::simd<uint64_t, tsl::scalar>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SCALAR with uint64_t: ";
-        allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-
-    }{
-        using ps = typename tsl::simd<int32_t, tsl::scalar>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SCALAR with int32_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-    }{
-        using ps = typename tsl::simd<uint16_t, tsl::scalar>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SCALAR with uint16_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, v1_count, v2_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v2_count, v1_count);
-        allOk &= test_intersect_sorted<ps>(batch_size, v1_count, v1_count);
-        std::cout << allOk << std::endl;
-    }{
-        using ps = typename tsl::simd<int8_t, tsl::scalar>;
-        const size_t batch_size = ps::vector_element_count();
-
-        std::cout << "\t-SCALAR with int8_t: ";
-        bool allOk = test_intersect_sorted<ps>(batch_size, 20, 15);
-        allOk &= test_intersect_sorted<ps>(batch_size, 15, 20);
-        allOk &= test_intersect_sorted<ps>(batch_size, 20, 20);
-        std::cout << allOk << std::endl;
+template<typename ps>
+bool do_test(){
+    const int number_count = std::pow(2, sizeof(typename ps::base_type)*8);
+    const int element_count = ps::vector_element_count();
+    int v1_count = 100000;
+    int v2_count = 1000000;
+    if(v1_count > number_count){
+        v1_count = number_count;
+    }if(v2_count > number_count){
+        v2_count = number_count;
     }
 
-    std::cout << "intersect_sorted result: " << allOk << std::endl;
+    bool allOk = true;
+    allOk &= test_intersect_sorted<ps>(element_count, v1_count, v2_count);
+    allOk &= test_intersect_sorted<ps>(element_count, v2_count, v1_count);
+    allOk &= test_intersect_sorted<ps>(element_count, v2_count, v2_count);
+    std::cout << tsl::type_name<typename ps::base_type>() << " : " << allOk << std::endl;
+    return allOk;
+}
+
+template<typename tsl_simd>
+bool test_intersect_sorted_wrapper(){
+    bool allOk = true;
+    std::cout << "Using: " << tsl::type_name<tsl_simd>() <<std::endl;
+    allOk &= do_test<tsl::simd<uint8_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<int8_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<uint16_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<int16_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<uint32_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<int32_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<uint64_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<int64_t, tsl_simd>>();
+    allOk &= do_test<tsl::simd<float, tsl_simd>>();
+    allOk &= do_test<tsl::simd<double, tsl_simd>>();
+    std::cout << "-------------------------------------------------------------------------" << std::endl;
+    return allOk;
+}
+
+int main()
+{
+    bool allOk = true;
+    std::cout << "Testing intersect_sorted...\n";
+    std::cout.flush();
+    allOk &= test_intersect_sorted_wrapper<tsl::scalar>();
+    allOk &= test_intersect_sorted_wrapper<tsl::sse>();
+    allOk &= test_intersect_sorted_wrapper<tsl::avx2>();
+    allOk &= test_intersect_sorted_wrapper<tsl::avx512>();
+    std::cout << "Complete Result: " << allOk << std::endl;
+    return 0;
 }
