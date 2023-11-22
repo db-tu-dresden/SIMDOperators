@@ -8,7 +8,7 @@ include(${PROJECT_SOURCE_DIR}/tools/tslgen/tsl.cmake)
 
 # Install python dependencies
 execute_process(
-    COMMAND pip install -r ${PROJECT_SOURCE_DIR}/tools/tslgen/requirements.txt
+    COMMAND pip3 install -r ${PROJECT_SOURCE_DIR}/tools/tslgen/requirements.txt
 )
 
 create_tsl(
