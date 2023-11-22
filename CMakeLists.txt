@@ -3,13 +3,13 @@ project(SimdOperators)
 
 set(CMAKE_CXX_STANDARD 20)
 
-# /// create the TSL library
-include(${CMAKE_CURRENT_SOURCE_DIR}/tools/tslgen/tsl.cmake)
-
 # Install python dependencies
 execute_process(
     COMMAND pip3 install -r ${CMAKE_CURRENT_SOURCE_DIR}/tools/tslgen/requirements.txt
-)
+) 
+
+# /// create the TSL library
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/tslgen/tsl.cmake)
 
 create_tsl(
     TSLGENERATOR_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tools/tslgen
