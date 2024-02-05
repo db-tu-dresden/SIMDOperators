@@ -11,11 +11,11 @@ FetchContent_MakeAvailable(Catch2)
 
 
 
-add_subdirectory(column_based)
+# add_subdirectory(column_based)
 
-add_executable(simpleTest simpleTest.cpp)
-target_include_directories(simpleTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
-target_link_libraries(simpleTest tsl SIMDOperators)
+# add_executable(simpleTest simpleTest.cpp)
+# target_include_directories(simpleTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
+# target_link_libraries(simpleTest tsl SIMDOperators)
 
 add_executable(operatorTest operatorTest.cpp)
 target_include_directories(operatorTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
