@@ -1,5 +1,10 @@
 {
-  "editor.formatOnSave": true,
+  "[cpp]": {
+    "editor.formatOnSave": true,
+  },
   "clang-format.executable": "/usr/bin/clang-format",
-  "clang-format.style": "file"
+  "clang-format.style": "file",
+  "files.associations": {
+    "${workspaceFolder}/tools/**/*.hpp": "plaintext"
+  }
 }

@@ -1,4 +1,5 @@
 create_test(
   TARGET_NAME select_test
-  SRC_FILES select_test.cpp
+  SRC_FILES algorithms/dbops/select_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
 )

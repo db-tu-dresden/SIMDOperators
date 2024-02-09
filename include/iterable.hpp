@@ -96,7 +96,7 @@ namespace tuddbs {
    * @tparam T The type to check.
    */
   template <typename T>
-  concept SimdOpsIterable = tsl::TSLArithmeticPointer<T> || SimdOpsIterableClass<T>;
+  concept SimdOpsIterable = (tsl::TSLArithmeticPointer<T> || SimdOpsIterableClass<T>);
 
   /**
    * @concept SimdOpsIterableOrSizeT

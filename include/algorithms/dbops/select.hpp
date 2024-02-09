@@ -31,13 +31,18 @@
 
 namespace tuddbs {
 
-  template <tsl::VectorProcessingStyle SimdStyle, template <class, class> class CompareFun,
-            SimdOpsIterableClass DataSinkType = typename SimdStyle::base_type *, typename Idof = tsl::workaround>
+  template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,
+            SimdOpsIterable _DataSinkType = typename _SimdStyle::imask_type *, typename Idof = tsl::workaround>
   class Generic_Filter_Bitmask {
+   public:
+    using SimdStyle = _SimdStyle;
+    using DataSinkType = _DataSinkType;
+    using base_type = typename SimdStyle::base_type;
+    using result_base_type = typename SimdStyle::imask_type;
+
    private:
     using ScalarT = tsl::simd<typename SimdStyle::base_type, tsl::scalar>;
-    using UnsignedSimdT =
-      typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_register_type>;
+    using UnsignedSimdT = typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_type>;
     using CountSimdT = typename SimdStyle::template transform_extension<size_t>;
     using CountSimdRegisterT = typename SimdStyle::template transform_type<size_t>;
 
@@ -45,19 +50,13 @@ namespace tuddbs {
     typename SimdStyle::base_type const m_predicate_scalar;
     typename SimdStyle::register_type const m_predicate_reg;
     typename SimdStyle::offset_base_register_type const m_increment;
-    size_t m_valid_count;
-
-    DataSinkType m_data_sink;
-    DataSinkType m_data_sink_current;
 
    public:
-    Generic_Filter_Bitmask(typename SimdStyle::base_type const &p_predicate, DataSinkType &p_data_sink)
+    Generic_Filter_Bitmask(typename SimdStyle::base_type const p_predicate)
       : m_predicate_scalar(p_predicate),
         m_predicate_reg(tsl::set1<SimdStyle>(p_predicate)),
-        m_increment(tsl::set1<UnsignedSimdT>(1)),
-        m_valid_count(0),
-        m_data_sink(p_data_sink),
-        m_data_sink_current(p_data_sink) {}
+        m_increment(tsl::set1<UnsignedSimdT>(1)) {}
+
     ~Generic_Filter_Bitmask() = default;
 
    public:
@@ -83,21 +82,22 @@ namespace tuddbs {
      *
      * @note The function updates the data sink with the selected elements.
      */
-    auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, bit_mask) noexcept -> void {
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+                    bit_mask) noexcept -> std::tuple<DataSinkType, size_t> {
       // Get the end of the SIMD iteration
-      auto const simd_end = simd_iter_end(p_data, p_end);
+      auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
-      auto valid_count = tsl::set1<CountSimdRegisterT>(0);
+      auto valid_count = tsl::set1<CountSimdT>(0);
       // Iterate over the data simdified and apply the filter for equality
-      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++m_data_sink_current) {
+      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++p_result) {
         // Load data from the source
         auto data = tsl::load<SimdStyle>(p_data);
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = CompareFun<SimdStyle, Idof>::apply(data, m_predicate_reg);
         // Store the result as an integral value into the data sink
-        tsl::store_imask(m_data_sink_current, tsl::to_integral<SimdStyle>(mask));
+        tsl::store_imask<SimdStyle>(p_result, tsl::to_integral<SimdStyle>(mask));
 
         // Increment the valid count
         auto count_increment = tsl::reinterpret<SimdStyle, UnsignedSimdT>(tsl::maskz_mov<SimdStyle>(mask, m_increment));
@@ -110,7 +110,7 @@ namespace tuddbs {
         }
       }
       // Get the simdified valid elements count
-      m_valid_count += tsl::hadd<CountSimdT>(valid_count);
+      auto scalar_valid_count = tsl::hadd<CountSimdT>(valid_count);
       if (p_data != end) {
         size_t valid_count_scalar = 0;
         typename SimdStyle::imask_type remainder_result = 0;
@@ -124,20 +124,27 @@ namespace tuddbs {
           valid_count_scalar += res;
         }
         // Store the remainder result
-        *m_data_sink_current = remainder_result;
+        *p_result = remainder_result;
         // Increment the valid count
-        m_valid_count += valid_count_scalar;
+        scalar_valid_count += valid_count_scalar;
       }
+      return std::make_tuple(p_result, scalar_valid_count);
     }
 
-    auto merge(Generic_Filter_Bitmask const &other) noexcept -> void { m_valid_count += other.m_valid_count; }
+    auto merge(Generic_Filter_Bitmask const &other) noexcept -> void {}
 
-    auto finalize() -> size_t { return m_valid_count; }
+    auto finalize() -> void {}
   };
 
-  template <tsl::VectorProcessingStyle SimdStyle, template <class, class> class CompareFun,
-            SimdOpsIterableClass DataSinkType = typename SimdStyle::base_type *, typename Idof = tsl::workaround>
+  template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,
+            SimdOpsIterable _DataSinkType = typename _SimdStyle::imask_type *, typename Idof = tsl::workaround>
   class Generic_Filter_Range_Bitmask {
+   public:
+    using SimdStyle = _SimdStyle;
+    using DataSinkType = _DataSinkType;
+    using base_type = typename SimdStyle::base_type;
+    using result_base_type = typename SimdStyle::imask_type;
+
    private:
     using ScalarT = tsl::simd<typename SimdStyle::base_type, tsl::scalar>;
     using UnsignedSimdT =
@@ -151,40 +158,34 @@ namespace tuddbs {
     typename SimdStyle::register_type const m_predicate_lower_reg;
     typename SimdStyle::register_type const m_predicate_upper_reg;
     typename SimdStyle::offset_base_register_type const m_increment;
-    size_t m_valid_count;
-
-    DataSinkType m_data_sink;
-    DataSinkType m_data_sink_current;
 
    public:
     Generic_Filter_Range_Bitmask(typename SimdStyle::base_type const &p_predicate_lower,
-                                 typename SimdStyle::base_type const &p_predicate_upper, DataSinkType &p_data_sink)
+                                 typename SimdStyle::base_type const &p_predicate_upper)
       : m_predicate_lower_scalar(p_predicate_lower),
         m_predicate_upper_scalar(p_predicate_upper),
         m_predicate_lower_reg(tsl::set1<SimdStyle>(p_predicate_lower)),
         m_predicate_upper_reg(tsl::set1<SimdStyle>(p_predicate_upper)),
-        m_increment(tsl::set1<UnsignedSimdT>(1)),
-        m_valid_count(0),
-        m_data_sink(p_data_sink),
-        m_data_sink_current(p_data_sink) {}
+        m_increment(tsl::set1<UnsignedSimdT>(1)) {}
     ~Generic_Filter_Range_Bitmask() = default;
 
    public:
-    auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, bit_mask) noexcept -> void {
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+                    bit_mask) noexcept -> std::tuple<DataSinkType, size_t> {
       // Get the end of the SIMD iteration
-      auto const simd_end = simd_iter_end(p_data, p_end);
+      auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
-      auto valid_count = tsl::set1<CountSimdRegisterT>(0);
+      auto valid_count = tsl::set1<CountSimdT>(0);
       // Iterate over the data simdified and apply the filter for equality
-      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++m_data_sink_current) {
+      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++p_result) {
         // Load data from the source
         auto data = tsl::load<SimdStyle>(p_data);
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = CompareFun<SimdStyle, Idof>::apply(data, m_predicate_lower_reg, m_predicate_upper_reg);
         // Store the result as an integral value into the data sink
-        tsl::store_imask(m_data_sink_current, tsl::to_integral<SimdStyle>(mask));
+        tsl::store_imask<SimdStyle>(p_result, tsl::to_integral<SimdStyle>(mask));
 
         // Increment the valid count
         auto count_increment = tsl::reinterpret<SimdStyle, UnsignedSimdT>(tsl::maskz_mov<SimdStyle>(mask, m_increment));
@@ -197,7 +198,7 @@ namespace tuddbs {
         }
       }
       // Get the simdified valid elements count
-      m_valid_count += tsl::hadd<CountSimdT>(valid_count);
+      auto scalar_valid_count = tsl::hadd<CountSimdT>(valid_count);
       if (p_data != end) {
         size_t valid_count_scalar = 0;
         typename SimdStyle::imask_type remainder_result = 0;
@@ -211,15 +212,16 @@ namespace tuddbs {
           valid_count_scalar += res;
         }
         // Store the remainder result
-        *m_data_sink_current = remainder_result;
+        *p_result = remainder_result;
         // Increment the valid count
-        m_valid_count += valid_count_scalar;
+        scalar_valid_count += valid_count_scalar;
       }
+      return std::make_tuple(p_result, scalar_valid_count);
     }
 
-    auto merge(Generic_Filter_Range_Bitmask const &other) noexcept -> void { m_valid_count += other.m_valid_count; }
+    auto merge(Generic_Filter_Range_Bitmask const &other) noexcept -> void {}
 
-    auto finalize() -> size_t { return m_valid_count; }
+    auto finalize() -> void {}
   };
 
   template <tsl::VectorProcessingStyle SimdStyle>

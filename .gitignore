@@ -5,3 +5,7 @@ build/
 libs/*
 .cache/
 .idea/
+
+bin/
+
+lib/tsl/
