@@ -17,26 +17,25 @@
  */
 // ------------------------------------------------------------------- //
 /**
- * @file select.hpp
+ * @file scan.hpp
  * @brief
  */
 
-#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SELECT_HPP
-#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SELECT_HPP
+#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_HPP
+#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_HPP
 
 #include "algorithms/dbops/simdops.hpp"
 #include "iterable.hpp"
-#include "static/simd/simd_type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
 
   template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,
-            SimdOpsIterable _DataSinkType = typename _SimdStyle::imask_type *, typename Idof = tsl::workaround>
-  class Generic_Filter_Bitmask {
+            typename Idof = tsl::workaround>
+  class Generic_Scan_Bitmask {
    public:
     using SimdStyle = _SimdStyle;
-    using DataSinkType = _DataSinkType;
+    using DataSinkType = typename _SimdStyle::imask_type *;
     using base_type = typename SimdStyle::base_type;
     using result_base_type = typename SimdStyle::imask_type;
 
@@ -52,23 +51,22 @@ namespace tuddbs {
     typename SimdStyle::offset_base_register_type const m_increment;
 
    public:
-    Generic_Filter_Bitmask(typename SimdStyle::base_type const p_predicate)
+    Generic_Scan_Bitmask(typename SimdStyle::base_type const p_predicate)
       : m_predicate_scalar(p_predicate),
         m_predicate_reg(tsl::set1<SimdStyle>(p_predicate)),
         m_increment(tsl::set1<UnsignedSimdT>(1)) {}
 
-    ~Generic_Filter_Bitmask() = default;
+    ~Generic_Scan_Bitmask() = default;
 
    public:
     /**
-     * Applies a selection filter to the data elements in the range [p_data, p_end).
-     * The filter is applied using SIMD operations for improved performance.
+     * Applies a selection Scan to the data elements in the range [p_data, p_end).
+     * The Scan is applied using SIMD operations for improved performance.
      * The selected elements are stored in the data sink.
      * The valid count of selected elements is updated accordingly.
      *
      * @param p_data The pointer to the start of the data range.
      * @param p_end The pointer to the end of the data range.
-     * @param bit_mask The bit mask used for filtering the elements.
      *
      * @note This function assumes that the data range is aligned for SIMD operations.
      *
@@ -82,35 +80,39 @@ namespace tuddbs {
      *
      * @note The function updates the data sink with the selected elements.
      */
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    bit_mask) noexcept -> std::tuple<DataSinkType, size_t> {
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data,
+                    SimdOpsIterableOrSizeT auto p_end) noexcept -> std::tuple<DataSinkType, size_t> {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
-      auto valid_count = tsl::set1<CountSimdT>(0);
-      // Iterate over the data simdified and apply the filter for equality
-      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++p_result) {
+
+      auto result = reinterpret_iterable<DataSinkType>(p_result);
+
+      auto valid_count = tsl::set1<CountSimdT, Idof>(0);
+      // Iterate over the data simdified and apply the Scan for equality
+      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++result) {
         // Load data from the source
-        auto data = tsl::load<SimdStyle>(p_data);
+        auto data = tsl::load<SimdStyle, Idof>(p_data);
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = CompareFun<SimdStyle, Idof>::apply(data, m_predicate_reg);
         // Store the result as an integral value into the data sink
-        tsl::store_imask<SimdStyle>(p_result, tsl::to_integral<SimdStyle>(mask));
+        tsl::store_imask<SimdStyle, Idof>(result, tsl::to_integral<SimdStyle>(mask));
 
         // Increment the valid count
-        auto count_increment = tsl::reinterpret<SimdStyle, UnsignedSimdT>(tsl::maskz_mov<SimdStyle>(mask, m_increment));
+        auto count_increment =
+          tsl::reinterpret<SimdStyle, UnsignedSimdT, Idof>(tsl::maskz_mov<SimdStyle>(mask, m_increment));
         if constexpr (sizeof(typename SimdStyle::base_type) < sizeof(size_t)) {
-          for (auto const &inc : tsl::convert_up<SimdStyle, CountSimdT>(count_increment)) {
-            valid_count = tsl::add<CountSimdT>(valid_count, inc);
+          for (auto const &inc : tsl::convert_up<SimdStyle, CountSimdT, Idof>(count_increment)) {
+            valid_count = tsl::add<CountSimdT, Idof>(valid_count, inc);
           }
         } else {
-          valid_count = tsl::add<CountSimdT>(valid_count, count_increment);
+          valid_count = tsl::add<CountSimdT, Idof>(valid_count, count_increment);
         }
       }
       // Get the simdified valid elements count
-      auto scalar_valid_count = tsl::hadd<CountSimdT>(valid_count);
+      auto scalar_valid_count = tsl::hadd<CountSimdT, Idof>(valid_count);
       if (p_data != end) {
         size_t valid_count_scalar = 0;
         typename SimdStyle::imask_type remainder_result = 0;
@@ -124,21 +126,21 @@ namespace tuddbs {
           valid_count_scalar += res;
         }
         // Store the remainder result
-        *p_result = remainder_result;
+        *result++ = remainder_result;
         // Increment the valid count
         scalar_valid_count += valid_count_scalar;
       }
-      return std::make_tuple(p_result, scalar_valid_count);
+      return std::make_tuple(result, scalar_valid_count);
     }
 
-    auto merge(Generic_Filter_Bitmask const &other) noexcept -> void {}
+    auto merge(Generic_Scan_Bitmask const &other) noexcept -> void {}
 
-    auto finalize() -> void {}
+    auto finalize() const noexcept -> void {}
   };
 
   template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,
             SimdOpsIterable _DataSinkType = typename _SimdStyle::imask_type *, typename Idof = tsl::workaround>
-  class Generic_Filter_Range_Bitmask {
+  class Generic_Scan_Range_Bitmask {
    public:
     using SimdStyle = _SimdStyle;
     using DataSinkType = _DataSinkType;
@@ -160,14 +162,14 @@ namespace tuddbs {
     typename SimdStyle::offset_base_register_type const m_increment;
 
    public:
-    Generic_Filter_Range_Bitmask(typename SimdStyle::base_type const &p_predicate_lower,
-                                 typename SimdStyle::base_type const &p_predicate_upper)
+    Generic_Scan_Range_Bitmask(typename SimdStyle::base_type const &p_predicate_lower,
+                               typename SimdStyle::base_type const &p_predicate_upper)
       : m_predicate_lower_scalar(p_predicate_lower),
         m_predicate_upper_scalar(p_predicate_upper),
         m_predicate_lower_reg(tsl::set1<SimdStyle>(p_predicate_lower)),
         m_predicate_upper_reg(tsl::set1<SimdStyle>(p_predicate_upper)),
         m_increment(tsl::set1<UnsignedSimdT>(1)) {}
-    ~Generic_Filter_Range_Bitmask() = default;
+    ~Generic_Scan_Range_Bitmask() = default;
 
    public:
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
@@ -177,7 +179,7 @@ namespace tuddbs {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
       auto valid_count = tsl::set1<CountSimdT>(0);
-      // Iterate over the data simdified and apply the filter for equality
+      // Iterate over the data simdified and apply the Scan for equality
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++p_result) {
         // Load data from the source
         auto data = tsl::load<SimdStyle>(p_data);
@@ -219,26 +221,26 @@ namespace tuddbs {
       return std::make_tuple(p_result, scalar_valid_count);
     }
 
-    auto merge(Generic_Filter_Range_Bitmask const &other) noexcept -> void {}
+    auto merge(Generic_Scan_Range_Bitmask const &other) noexcept -> void {}
 
     auto finalize() -> void {}
   };
 
   template <tsl::VectorProcessingStyle SimdStyle>
-  using FilterEQ_BM = Generic_Filter_Bitmask<SimdStyle, tsl::functors::equal>;
+  using ScanEQ_BM = Generic_Scan_Bitmask<SimdStyle, tsl::functors::equal>;
   template <tsl::VectorProcessingStyle SimdStyle>
-  using FilterNEQ_BM = Generic_Filter_Bitmask<SimdStyle, tsl::functors::nequal>;
+  using ScanNEQ_BM = Generic_Scan_Bitmask<SimdStyle, tsl::functors::nequal>;
   template <tsl::VectorProcessingStyle SimdStyle>
-  using FilterLT_BM = Generic_Filter_Bitmask<SimdStyle, tsl::functors::less_than>;
+  using ScanLT_BM = Generic_Scan_Bitmask<SimdStyle, tsl::functors::less_than>;
   template <tsl::VectorProcessingStyle SimdStyle>
-  using FilterGT_BM = Generic_Filter_Bitmask<SimdStyle, tsl::functors::greater_than>;
+  using ScanGT_BM = Generic_Scan_Bitmask<SimdStyle, tsl::functors::greater_than>;
   template <tsl::VectorProcessingStyle SimdStyle>
-  using FilterLE_BM = Generic_Filter_Bitmask<SimdStyle, tsl::functors::less_than_or_equal>;
+  using ScanLE_BM = Generic_Scan_Bitmask<SimdStyle, tsl::functors::less_than_or_equal>;
   template <tsl::VectorProcessingStyle SimdStyle>
-  using FilterGE_BM = Generic_Filter_Bitmask<SimdStyle, tsl::functors::greater_than_or_equal>;
+  using ScanGE_BM = Generic_Scan_Bitmask<SimdStyle, tsl::functors::greater_than_or_equal>;
 
   template <tsl::VectorProcessingStyle SimdStyle>
-  using FilterBWI_BM = Generic_Filter_Range_Bitmask<SimdStyle, tsl::functors::between_inclusive>;
+  using ScanBWI_BM = Generic_Scan_Range_Bitmask<SimdStyle, tsl::functors::between_inclusive>;
 
 }  // namespace tuddbs
 

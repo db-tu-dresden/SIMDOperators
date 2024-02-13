@@ -139,6 +139,17 @@ namespace tuddbs {
     }
   }
 
+  template <tsl::TSLArithmeticPointer To, SimdOpsIterable From>
+  constexpr auto reinterpret_iterable(From data) {
+    if constexpr (std::is_pointer_v<std::decay_t<From>>) {
+      return reinterpret_cast<To>(data);
+    } else if constexpr (std::is_convertible_v<From, To>) {
+      return static_cast<To>(data);
+    } else {
+      throw std::invalid_argument("Cannot convert");
+    }
+  }
+
 }  // namespace tuddbs
 
 #endif  // SIMDOPS_INCLUDE_ITERABLE_HPP

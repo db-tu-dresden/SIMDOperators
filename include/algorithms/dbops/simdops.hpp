@@ -24,6 +24,8 @@
 #ifndef SIMDOPS_INCLUDE_DBOPS_SIMDOPS_HPP
 #define SIMDOPS_INCLUDE_DBOPS_SIMDOPS_HPP
 
+#include <type_traits>
+
 namespace tuddbs {
   /**
    * @brief Tag to identify that an operator produces a position list.
@@ -33,5 +35,14 @@ namespace tuddbs {
    * @brief Tag to identify that an operator produces a bitmask.
    */
   struct bit_mask {};
+
+  template <typename... Args>
+  struct OperatorHintSet {
+    template <typename Arg>
+    using has_type_t = std::disjunction<std::is_same<Arg, Args>...>;
+  };
+  template <typename HS, typename Arg>
+  inline constexpr bool has_hint = HS::template has_type_t<Arg>::value;
+
 }  // namespace tuddbs
 #endif

@@ -485,17 +485,10 @@ namespace tuddbs {
       }
 
      public:
-      /**
-       * @brief Conversion operator to pointer type.
-       * @return The data pointer of the iterator.
-       */
-      operator pointer_type() const { return m_data; }
-
-      /**
-       * @brief Conversion operator to void pointer type.
-       * @return The data pointer of the iterator casted to a void pointer.
-       */
-      operator void_type *() const { return static_cast<void_type *>(m_data); }
+      template <typename PtrT>
+      operator PtrT *() const {
+        return reinterpret_cast<PtrT *>(m_data);
+      }
     };
 
     /**
