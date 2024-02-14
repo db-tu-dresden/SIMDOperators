@@ -139,6 +139,23 @@ namespace tuddbs {
     }
   }
 
+  template <unsigned long N>
+  constexpr static auto batched_iter_end(SimdOpsIterable auto data, SimdOpsIterableOrSizeT auto end) {
+    if constexpr ((N & (N - 1)) == 0) {
+      return data + (end - (end & (N - 1)));
+    } else {
+      return data + (end - (end % N));
+    }
+  }
+
+  constexpr static auto batched_iter_end(SimdOpsIterable auto data, SimdOpsIterableOrSizeT auto end, unsigned long N) {
+    if ((N & (N - 1)) == 0) {
+      return data + (end - (end & (N - 1)));
+    } else {
+      return data + (end - (end % N));
+    }
+  }
+
   template <tsl::TSLArithmeticPointer To, SimdOpsIterable From>
   constexpr auto reinterpret_iterable(From data) {
     if constexpr (std::is_pointer_v<std::decay_t<From>>) {
