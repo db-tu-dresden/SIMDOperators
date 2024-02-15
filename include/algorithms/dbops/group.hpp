@@ -31,7 +31,6 @@
 #include "algorithms/dbops/simdops.hpp"
 #include "generated/declarations/mask.hpp"
 #include "iterable.hpp"
-#include "static/simd/simd_type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
@@ -99,6 +98,8 @@ namespace tuddbs {
         m_map_element_count(p_map_element_count),
         m_group_id_count(0) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
+        std::cout << m_map_element_count << " " << m_map_element_count - 1 << " "
+                  << (m_map_element_count & (m_map_element_count - 1)) << std::endl;
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
       if (initialize) {
@@ -136,7 +137,7 @@ namespace tuddbs {
       // calculate the position hint
       auto lookup_position =
         normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
-          default_hasher<SimdStyle, Idof>::hash_value(*key), m_map_element_count));
+          default_hasher<SimdStyle, Idof>::hash_value(key), m_map_element_count));
 
       while (true) {
         // load N values from the map
@@ -164,8 +165,9 @@ namespace tuddbs {
           m_original_positions_sink[m_group_id_count++] = key_position_in_data;
           break;
         }
-        lookup_position = normalizer<SimdStyle, HintSet, Idof>::align_value(
-          normalizer<SimdStyle, HintSet, Idof>::normalize_value(lookup_position + SimdStyle::vector_element_count()));
+        lookup_position =
+          normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
+            lookup_position + SimdStyle::vector_element_count(), m_map_element_count));
       }
     }
 
@@ -344,6 +346,8 @@ namespace tuddbs {
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_map_element_count(p_map_element_count) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
+        std::cout << m_map_element_count << " " << m_map_element_count - 1 << " "
+                  << (m_map_element_count & (m_map_element_count - 1)) << std::endl;
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
     }
@@ -357,7 +361,7 @@ namespace tuddbs {
       // calculate the position hint
       auto lookup_position =
         normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
-          default_hasher<SimdStyle, Idof>::hash_value(*key), m_map_element_count));
+          default_hasher<SimdStyle, Idof>::hash_value(key), m_map_element_count));
 
       while (true) {
         // load N values from the map
@@ -368,8 +372,9 @@ namespace tuddbs {
           size_t position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
           return m_group_id_sink[lookup_position + position];
         }
-        lookup_position = normalizer<SimdStyle, HintSet, Idof>::align_value(
-          normalizer<SimdStyle, HintSet, Idof>::normalize_value(lookup_position + SimdStyle::vector_element_count()));
+        lookup_position =
+          normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
+            lookup_position + SimdStyle::vector_element_count(), m_map_element_count));
       }
       // this should never be reached
       return 0;

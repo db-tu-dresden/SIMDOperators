@@ -42,6 +42,7 @@ namespace tuddbs {
 
   template <tsl::VectorProcessingStyle SimdStyle, class HintSet, tsl::ImplementationDegreeOfFreedom Idof>
   class normalizer {
+   public:
     [[nodiscard]] TSL_FORCE_INLINE static auto normalize(typename SimdStyle::register_type position_hint,
                                                          typename SimdStyle::register_type bucket_count) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
@@ -65,6 +66,7 @@ namespace tuddbs {
 
   template <tsl::VectorProcessingStyle SimdStyle, tsl::ImplementationDegreeOfFreedom Idof>
   class default_hasher {
+   public:
     [[nodiscard]] TSL_FORCE_INLINE static auto hash(typename SimdStyle::register_type key) { return key; }
     [[nodiscard]] TSL_FORCE_INLINE static auto hash_value(typename SimdStyle::base_type key) { return key; }
   };

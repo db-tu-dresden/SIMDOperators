@@ -13,28 +13,21 @@ TEST_CASE("GroupBy for uint64_t with avx2", "[cpu][groupby][uint64_t][avx2]") {
                         OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                                         hints::grouping::global_first_occurence_required>>;
 
-  const size_t element_count = 1 << 30;
-  const size_t map_count = 1 << 31;
+  const size_t element_count = 1UL << 30;
+  const size_t map_count = 1UL << 31;
 
-  InMemoryColumn<uint64_t> column_to_group(
-    element_count, [](size_t i) { return reinterpret_cast<uint64_t*>(_mm_malloc(i * sizeof(uint64_t), 64)); },
-    [](uint64_t* ptr) { _mm_free(ptr); });
+  auto group_allocator = [](size_t i) { return reinterpret_cast<uint64_t*>(_mm_malloc(i * sizeof(uint64_t), 64)); };
+  auto group_deleter = [](uint64_t* ptr) { _mm_free(ptr); };
 
-  InMemoryColumn<uint64_t> gids(
-    element_count, [](size_t i) { return reinterpret_cast<uint64_t*>(_mm_malloc(i * sizeof(uint64_t), 64)); },
-    [](uint64_t* ptr) { _mm_free(ptr); });
+  InMemoryColumn<uint64_t> column_to_group(element_count, group_allocator, group_deleter);
 
-  InMemoryColumn<uint64_t> map_key_sink(
-    map_count, [](size_t i) { return reinterpret_cast<uint64_t*>(_mm_malloc(i * sizeof(uint64_t), 64)); },
-    [](uint64_t* ptr) { _mm_free(ptr); });
+  InMemoryColumn<uint64_t> gids(element_count, group_allocator, group_deleter);
 
-  InMemoryColumn<uint64_t> map_gid_sink(
-    map_count, [](size_t i) { return reinterpret_cast<uint64_t*>(_mm_malloc(i * sizeof(uint64_t), 64)); },
-    [](uint64_t* ptr) { _mm_free(ptr); });
+  InMemoryColumn<uint64_t> map_key_sink(map_count, group_allocator, group_deleter);
 
-  InMemoryColumn<uint64_t> gext_sink(
-    map_count, [](size_t i) { return reinterpret_cast<uint64_t*>(_mm_malloc(i * sizeof(uint64_t), 64)); },
-    [](uint64_t* ptr) { _mm_free(ptr); });
+  InMemoryColumn<uint64_t> map_gid_sink(map_count, group_allocator, group_deleter);
+
+  InMemoryColumn<uint64_t> gext_sink(map_count, group_allocator, group_deleter);
 
   group_t::builder_t builder(map_key_sink.begin(), map_gid_sink.begin(), gext_sink.begin(), map_count);
 
@@ -45,6 +38,6 @@ TEST_CASE("GroupBy for uint64_t with avx2", "[cpu][groupby][uint64_t][avx2]") {
   grouper(gids.begin(), column_to_group.cbegin(), column_to_group.cend());
 
   for (size_t i = 0; i < element_count; ++i) {
-    REQUIRE(column_to_group[gext_sink[gids[i]]] == column_to_group[i]);
+    REQUIRE(column_to_group.cbegin()[gext_sink.cbegin()[gids.cbegin()[i]]] == column_to_group.cbegin()[i]);
   }
 }
