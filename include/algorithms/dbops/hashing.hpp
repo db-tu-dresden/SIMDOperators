@@ -54,7 +54,7 @@ namespace tuddbs {
     [[nodiscard]] TSL_FORCE_INLINE static auto normalize_value(typename SimdStyle::base_type position_hint,
                                                                typename SimdStyle::base_type bucket_count) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
-        return position_hint & bucket_count;
+        return position_hint & (bucket_count - 1);
       } else {
         return position_hint % bucket_count;
       }

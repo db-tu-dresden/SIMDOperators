@@ -98,8 +98,6 @@ namespace tuddbs {
         m_map_element_count(p_map_element_count),
         m_group_id_count(0) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
-        std::cout << m_map_element_count << " " << m_map_element_count - 1 << " "
-                  << (m_map_element_count & (m_map_element_count - 1)) << std::endl;
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
       if (initialize) {
@@ -346,8 +344,6 @@ namespace tuddbs {
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_map_element_count(p_map_element_count) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
-        std::cout << m_map_element_count << " " << m_map_element_count - 1 << " "
-                  << (m_map_element_count & (m_map_element_count - 1)) << std::endl;
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
     }

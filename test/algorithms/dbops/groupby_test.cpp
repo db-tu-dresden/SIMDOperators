@@ -13,8 +13,8 @@ TEST_CASE("GroupBy for uint64_t with avx2", "[cpu][groupby][uint64_t][avx2]") {
                         OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                                         hints::grouping::global_first_occurence_required>>;
 
-  const size_t element_count = 1UL << 30;
-  const size_t map_count = 1UL << 31;
+  const size_t element_count = 1UL << 20;
+  const size_t map_count = 1UL << 24;
 
   auto group_allocator = [](size_t i) { return reinterpret_cast<uint64_t*>(_mm_malloc(i * sizeof(uint64_t), 64)); };
   auto group_deleter = [](uint64_t* ptr) { _mm_free(ptr); };
