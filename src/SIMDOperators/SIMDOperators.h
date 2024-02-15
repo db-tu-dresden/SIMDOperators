@@ -8,6 +8,8 @@ namespace tuddbs{};
 
 #include <SIMDOperators/operators/select.hpp>
 #include <SIMDOperators/operators/project.hpp>
+#include <SIMDOperators/operators/calc.hpp>
+#include <SIMDOperators/operators/MetaOperator.hpp>
 
 
 #endif //SRC_SIMDOPERATORS_SIMDOPERATORS_H

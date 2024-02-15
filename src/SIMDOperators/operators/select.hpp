@@ -24,8 +24,86 @@
 #include <SIMDOperators/utils/preprocessor.h>
 #include <SIMDOperators/utils/AlignmentHelper.hpp>
 #include <SIMDOperators/datastructures/column.hpp>
+#include <SIMDOperators/utils/constexpr/MemberDetector.h>
 
 namespace tuddbs{
+
+    template<typename ProcessingStyle, template<typename ...> typename CompareOperator>
+    class select_core {
+        using ps = ProcessingStyle;
+        using base_type = typename ps::base_type;
+        using scalar = tsl::simd<base_type, tsl::scalar>;
+
+        using col_t = Column<base_type>;
+        using col_ptr = col_t *;
+        using const_col_ptr = const col_t *;
+
+        using reg_t = typename ps::register_type;
+        using mask_t = typename ps::mask_type;
+        using imask_t = typename ps::imask_type;
+
+
+        public:
+        /// Used for MetaOperator to determine if operator has a state
+        constexpr static bool is_stateful = true;
+
+        constexpr static bool is_available = detector::has_static_method_apply_v<tsl::functors::set1<ps, tsl::workaround>>
+                                            && detector::has_static_method_apply_v<tsl::functors::custom_sequence<ps, tsl::workaround>>
+                                            && detector::has_static_method_apply_v<tsl::functors::load<ps, tsl::workaround>>
+                                            && detector::has_static_method_apply_v<tsl::functors::to_integral<ps, tsl::workaround>>
+                                            && detector::has_static_method_apply_v<tsl::functors::imask_population_count<ps, tsl::workaround>>
+                                            && detector::has_static_method_apply_v<tsl::functors::compress_store<ps, tsl::workaround>>
+                                            && detector::has_static_method_apply_v<tsl::functors::add<ps, tsl::workaround>>;
+
+        struct state {
+            size_t pos_idx;
+            state() : pos_idx(0) {}
+        };
+
+        DBTUD_CXX_ATTRIBUTE_FORCE_INLINE
+        static void 
+        apply(base_type * out1, size_t& out1_count, const base_type * in1, size_t in1_element_count, state& state, base_type predicate1){
+            out1_count = 0;
+
+            if(in1_element_count == 0){
+                return;
+            }
+
+
+            /// [predicate, ...]
+            reg_t const predicate_vector = tsl::set1<ps>(predicate1);
+            /// [element_count, ...]
+            reg_t const increment_vector = tsl::set1<ps>(ps::vector_element_count());
+            /// [0, 1, 2, 3, ...]
+            // reg_t position_vector = tsl::sequence<ps>(); // TODO: check if sequence works correct
+            reg_t position_vector = tsl::custom_sequence<ps>(state.pos_idx, 1); 
+
+
+            size_t vector_count = in1_element_count / ps::vector_element_count();
+            for (size_t i = 0; i < vector_count; ++i) {
+                /// load data into vector register
+                reg_t data_vector = tsl::load<ps>(in1);
+                /// compare data with predicate, resulting in a bit mask
+                mask_t mask = CompareOperator<ps, tsl::workaround>::apply(data_vector, predicate_vector);
+                imask_t imask = tsl::to_integral<ps>(mask);
+                /// count the number of set bits in the mask
+                size_t count = tsl::mask_population_count<ps>(imask);
+                /// store the positions for matched elements
+                tsl::compress_store<ps>(imask, out1, position_vector);
+                /// increment the position vector
+                position_vector = tsl::add<ps>(position_vector, increment_vector);
+                /// increment the output data pointer
+                out1 += count;
+                /// increment the overall count
+                out1_count += count;
+                /// increment the input data pointer
+                in1 += ps::vector_element_count();
+            }
+            state.pos_idx += in1_element_count;
+        }
+    };
+
+
     template<typename ProcessingStyle, template < typename ... > typename CompareOperator >
     class select {
         using ps = ProcessingStyle;
@@ -113,7 +191,7 @@ namespace tuddbs{
 
             /// Scalar preprocessing
             size_t pos_count = batch<scalar>::apply( result_ptr, column_ptr, predicate, alignment_elements, 0 );
-            std::cout << "Scalar preprocessing: " << alignment_elements << " // " << pos_count << std::endl;
+            // std::cout << "Scalar preprocessing: " << alignment_elements << " // " << pos_count << std::endl;
 
             /// Vector processing
             size_t vector_count = (column->getPopulationCount() - alignment_elements) / ps::vector_element_count();
@@ -124,7 +202,7 @@ namespace tuddbs{
                 vector_count,
                 alignment_elements
             );
-            std::cout << "Vector processing: " << vector_count << " // " << pos_count << std::endl;
+            // std::cout << "Vector processing: " << vector_count << " // " << pos_count << std::endl;
             /// Scalar postprocessing
             pos_count += batch<scalar>::apply( 
                 result_ptr + pos_count, 
@@ -133,7 +211,7 @@ namespace tuddbs{
                 column->getPopulationCount() - alignment_elements - vector_count * ps::vector_element_count(),
                 alignment_elements + vector_count * ps::vector_element_count() 
             );
-            std::cout << "Scalar postprocessing: " << column->getPopulationCount() - alignment_elements - vector_count * ps::vector_element_count() << " // " << pos_count << std::endl;
+            // std::cout << "Scalar postprocessing: " << column->getPopulationCount() - alignment_elements - vector_count * ps::vector_element_count() << " // " << pos_count << std::endl;
 
             result->setPopulationCount(pos_count);
 

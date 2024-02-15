@@ -38,6 +38,12 @@ int main(){
     // Define the processing style to use.
     #ifdef USE_AVX512
         using ps = typename tsl::simd<uint64_t, tsl::avx512>;
+    #elif USE_AVX2
+        using ps = typename tsl::simd<uint64_t, tsl::avx2>;
+    #elif USE_SSE
+        using ps = typename tsl::simd<uint64_t, tsl::sse>;
+    #elif USE_NEON
+        using ps = typename tsl::simd<uint64_t, tsl::neon>;
     #else
         using ps = typename tsl::simd<uint64_t, tsl::scalar>;
     #endif

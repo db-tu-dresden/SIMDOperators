@@ -13,7 +13,9 @@ target_sources(SIMDOperators
     INTERFACE 
         ${SRC_DIR}/datastructures/column.hpp
         ${SRC_DIR}/utils/types.hpp
+        ${SRC_DIR}/operators/select.hpp
         ${SRC_DIR}/operators/project.hpp
+        ${SRC_DIR}/operators/calc.hpp
 )   
 
 
