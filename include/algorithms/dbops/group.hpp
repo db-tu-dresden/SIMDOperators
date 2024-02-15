@@ -342,6 +342,8 @@ namespace tuddbs {
      * This function performs any necessary finalization steps for the hash table. Currently, it does nothing.
      */
     auto finalize() const noexcept -> void {}
+
+    auto distinct_key_count() const noexcept { return m_group_id_count; }
   };
 
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::hashing::size_exp_2>,

@@ -272,7 +272,7 @@ namespace tuddbs {
        * @brief Constructs an iterator with the specified data pointer.
        * @param data The data pointer.
        */
-      explicit iterator(T *data) noexcept : m_data(data) {}
+      explicit iterator(pointer_type data) noexcept : m_data(data) {}
 
       /**
        * @brief Copy constructor for the iterator.
