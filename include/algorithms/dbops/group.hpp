@@ -30,6 +30,7 @@
 #include "algorithms/dbops/hashing.hpp"
 #include "algorithms/dbops/simdops.hpp"
 #include "iterable.hpp"
+#include "static/simd/simd_type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
@@ -109,6 +110,27 @@ namespace tuddbs {
           m_original_positions_sink[i] = m_invalid_position;
         }
       }
+    }
+    template <tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof, typename HS = HintSet,
+              enable_if_has_hint_t<HS, hints::hashing::is_hull_for_merging>>
+    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(
+      SimdOpsIterable auto p_key_sink, SimdOpsIterable auto p_group_id_sink,
+      SimdOpsIterable auto p_original_first_occurence_position_sink, size_t p_map_element_count,
+      Grouping_Hash_Build_SIMD_Linear_Displacement<OtherSimdStlye, OtherHintSet, OtherIdof> const &other)
+      : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
+        m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
+        m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_original_first_occurence_position_sink)),
+        m_map_element_count(p_map_element_count),
+        m_group_id_count(0) {
+      if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
+        assert((m_map_element_count & (m_map_element_count - 1)) == 0);
+      }
+      for (auto i = 0; i < m_map_element_count; ++i) {
+        m_key_sink[i] = m_empty_bucket_value;
+        m_group_id_sink[i] = m_invalid_gid;
+        m_original_positions_sink[i] = m_invalid_position;
+      }
+      merge<true, false>(other);
     }
 
     /**
@@ -312,7 +334,12 @@ namespace tuddbs {
      *
      * @param other The other hash table to merge.
      */
-    auto merge(Grouping_Hash_Build_SIMD_Linear_Displacement const &other) noexcept -> void {
+    template <tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof,
+              bool NeedsPosition = has_hint<HintSet, hints::grouping::global_first_occurence_required>,
+              bool ExplicitMerge = true>
+    auto merge(
+      Grouping_Hash_Build_SIMD_Linear_Displacement<OtherSimdStlye, OtherHintSet, OtherIdof> const &other) noexcept
+      -> void {
       auto const not_found_mask = tsl::integral_all_false<SimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
 
@@ -320,11 +347,11 @@ namespace tuddbs {
         auto const gid = other.m_group_id_sink[i];
         if (gid != m_invalid_gid) {
           auto const key = other.m_key_sink[i];
-          if constexpr (has_hint<HintSet, hints::grouping::global_first_occurence_required>) {
+          if constexpr (NeedsPosition) {
             auto original_key_position = other.m_original_positions_sink[gid];
-            insert<true>(key, original_key_position, not_found_mask, empty_bucket_reg);
+            insert<ExplicitMerge>(key, original_key_position, not_found_mask, empty_bucket_reg);
           } else {
-            insert<true>(key, 0, not_found_mask, empty_bucket_reg);
+            insert<ExplicitMerge>(key, 0, not_found_mask, empty_bucket_reg);
           }
         }
       }

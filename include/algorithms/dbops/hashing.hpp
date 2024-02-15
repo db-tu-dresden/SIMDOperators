@@ -35,6 +35,7 @@ namespace tuddbs {
       struct unique_keys {};
       struct size_exp_2 {};
       struct keys_may_contain_zero {};
+      struct is_hull_for_merging {};
 
       struct linear_displacement {};
       struct refill {};
