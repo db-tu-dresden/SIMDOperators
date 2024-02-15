@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_templated.hpp>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +11,36 @@
 #include "algorithms/dbops/hashing.hpp"
 #include "algorithms/dbops/simdops.hpp"
 #include "datastructures/column.hpp"
+
+template <typename Range>
+struct GroupByOrigRecreator : Catch::Matchers::MatcherGenericBase {
+  Range const &m_orig_column;
+  GroupByOrigRecreator(Range const &orig_column) : m_orig_column(orig_column) {}
+
+  template <typename OtherRange>
+  bool match(OtherRange const &other) const {
+    auto orig_column_it = m_orig_column.cbegin();
+    auto gids_it = other.gids.cbegin();
+    auto gexts_it = other.gext_sink.cbegin();
+    for (size_t i = 0; i < m_orig_column.count(); ++i) {
+      auto gid = gids_it[i];
+      auto gext = gexts_it[gid];
+      if (orig_column_it[i] != orig_column_it[gext]) {
+        std::cerr << "Mismatch at index " << i << " with orig " << orig_column_it[i] << " and recreated "
+                  << orig_column_it[gext] << " (GID: " << gid << ", GEXT: " << gext << ")" << std::endl;
+        return false;
+      }
+    }
+    return true;
+  }
+
+  std::string describe() const override { return "Original column could be recreated from groupby result"; }
+};
+
+template <typename Range>
+auto GroupByRecreate(const Range &range) -> GroupByOrigRecreator<Range> {
+  return GroupByOrigRecreator<Range>{range};
+}
 
 template <typename T>
 struct group_column_set_t {
@@ -31,9 +62,10 @@ struct group_column_set_t {
 TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
   using base_t = uint64_t;
   using namespace tuddbs;
-  using group_t = Group<tsl::simd<uint64_t, tsl::sse>,
-                        OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
-                                        hints::grouping::global_first_occurence_required>>;
+  using group_t =
+    Group<tsl::simd<uint64_t, tsl::sse>,
+          OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
+                          hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
 
   const size_t element_count = 1UL << 20;
@@ -52,8 +84,11 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
   };
 
   InMemoryColumn<base_t> column_to_group(element_count, group_allocator, group_deleter);
-  std::mt19937 mt(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  std::uniform_int_distribution<> dist(1, map_count);
+  // auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  size_t seed = 1708006188442894170;
+  std::mt19937 mt(seed);
+  std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, 2);
 
   for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
     (*it) = dist(mt);
@@ -104,10 +139,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
 
     grouper(group_columns.gids.begin(), column_to_group.cbegin(), column_to_group.cend());
 
-    for (size_t i = 0; i < element_count; ++i) {
-      REQUIRE(column_to_group.cbegin()[group_columns.gext_sink.cbegin()[group_columns.gids.cbegin()[i]]] ==
-              column_to_group.cbegin()[i]);
-    }
+    REQUIRE_THAT(group_columns, GroupByRecreate(column_to_group));
 
     for (auto state : builder_states) {
       delete state;
@@ -115,12 +147,13 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
   }
 }
 
-TEST_CASE("GroupBy for uint64_t with avx2", "[cpu][groupby][uint64_t][avx2]") {
+TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx]") {
   using base_t = uint64_t;
   using namespace tuddbs;
-  using group_t = Group<tsl::simd<uint64_t, tsl::avx2>,
-                        OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
-                                        hints::grouping::global_first_occurence_required>>;
+  using group_t =
+    Group<tsl::simd<uint64_t, tsl::avx2>,
+          OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
+                          hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
 
   const size_t element_count = 1UL << 20;
@@ -139,8 +172,10 @@ TEST_CASE("GroupBy for uint64_t with avx2", "[cpu][groupby][uint64_t][avx2]") {
   };
 
   InMemoryColumn<base_t> column_to_group(element_count, group_allocator, group_deleter);
-  std::mt19937 mt(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  std::uniform_int_distribution<> dist(1, map_count);
+  auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  std::mt19937 mt(seed);
+  std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, 2);
 
   for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
     (*it) = dist(mt);
@@ -191,10 +226,7 @@ TEST_CASE("GroupBy for uint64_t with avx2", "[cpu][groupby][uint64_t][avx2]") {
 
     grouper(group_columns.gids.begin(), column_to_group.cbegin(), column_to_group.cend());
 
-    for (size_t i = 0; i < element_count; ++i) {
-      REQUIRE(column_to_group.cbegin()[group_columns.gext_sink.cbegin()[group_columns.gids.cbegin()[i]]] ==
-              column_to_group.cbegin()[i]);
-    }
+    REQUIRE_THAT(group_columns, GroupByRecreate(column_to_group));
 
     for (auto state : builder_states) {
       delete state;

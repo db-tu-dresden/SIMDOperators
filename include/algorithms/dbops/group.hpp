@@ -77,8 +77,8 @@ namespace tuddbs {
 
     size_t const m_empty_bucket_value = 0;
 
-    constexpr static size_t const m_invalid_position = std::numeric_limits<PositionType>::max();
-    constexpr static size_t const m_invalid_gid = std::numeric_limits<GroupIdType>::max();
+    constexpr static PositionType const m_invalid_position = std::numeric_limits<PositionType>::max();
+    constexpr static GroupIdType const m_invalid_gid = std::numeric_limits<GroupIdType>::max();
 
    public:
     /**
@@ -99,16 +99,14 @@ namespace tuddbs {
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_original_first_occurence_position_sink)),
         m_map_element_count(p_map_element_count),
         m_group_id_count(0) {
-      std::cerr << "Grouping_Hash_Build_SIMD_Linear_Displacement<" << tsl::type_name<SimdStyle>()
-                << ">: " << m_map_element_count << std::endl;
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
       if (initialize) {
         for (auto i = 0; i < m_map_element_count; ++i) {
           m_key_sink[i] = m_empty_bucket_value;
-          m_group_id_sink[i] = m_map_element_count + 1;
-          m_original_positions_sink[i] = m_map_element_count + 1;
+          m_group_id_sink[i] = m_invalid_gid;
+          m_original_positions_sink[i] = m_invalid_position;
         }
       }
     }
@@ -155,12 +153,10 @@ namespace tuddbs {
             auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
             if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
               // if the key is found, we have to check whether the key has the same value as an empty bucket
-              auto const keys_are_zero_mask = tsl::equal_as_imask<SimdStyle, Idof>(keys_reg, empty_bucket_reg);
-
               if (key == m_empty_bucket_value) {
                 auto group_id = m_group_id_sink[lookup_position + found_position];
-                if (m_group_id_sink[group_id] == m_invalid_gid) {
-                  m_group_id_sink[group_id] = m_group_id_count;
+                if (group_id == m_invalid_gid) {
+                  m_group_id_sink[lookup_position + found_position] = m_group_id_count;
                   m_original_positions_sink[m_group_id_count++] = key_position_in_data;
                 }
               }
@@ -367,8 +363,6 @@ namespace tuddbs {
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_map_element_count(p_map_element_count) {
-      std::cerr << "Grouper_SIMD_Linear_Displacement<" << tsl::type_name<SimdStyle>() << ">: " << m_map_element_count
-                << std::endl;
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
