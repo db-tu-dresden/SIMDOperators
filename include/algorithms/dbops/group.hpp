@@ -147,7 +147,7 @@ namespace tuddbs {
         auto map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
         // compare the current key with the N values, if the key is found, the mask will contain a 1 bit at the position
         // of the found key
-        auto const key_found_mask = tsl::to_integral<SimdStyle, Idof>(tsl::equal<SimdStyle, Idof>(map_reg, keys_reg));
+        auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
         // if the key is found, we can stop the search, since we already inserted it into the map
         if (tsl::nequal<SimdStyle, Idof>(key_found_mask, all_false_mask)) {
           if constexpr (has_any_hint<HintSet, hints::hashing::keys_may_contain_zero,
@@ -155,8 +155,7 @@ namespace tuddbs {
             auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
             if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
               // if the key is found, we have to check whether the key has the same value as an empty bucket
-              auto const keys_are_zero_mask =
-                tsl::to_integral<SimdStyle, Idof>(tsl::equal<SimdStyle, Idof>(keys_reg, empty_bucket_reg));
+              auto const keys_are_zero_mask = tsl::equal_as_imask<SimdStyle, Idof>(keys_reg, empty_bucket_reg);
 
               if (key == m_empty_bucket_value) {
                 auto group_id = m_group_id_sink[lookup_position + found_position];
@@ -177,8 +176,7 @@ namespace tuddbs {
           break;
         }
         // if the key is not found, we have to check if there is an empty bucket in the map
-        auto const empty_bucket_found_mask =
-          tsl::to_integral<SimdStyle, Idof>(tsl::equal<SimdStyle, Idof>(map_reg, empty_bucket_reg));
+        auto const empty_bucket_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, empty_bucket_reg);
         if (tsl::nequal<SimdStyle, Idof>(empty_bucket_found_mask, all_false_mask)) {
           size_t empty_bucket_position = tsl::tzc<SimdStyle, Idof>(empty_bucket_found_mask);
           m_key_sink[lookup_position + empty_bucket_position] = key;
@@ -391,7 +389,7 @@ namespace tuddbs {
         // load N values from the map
         auto map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
         // compare the current key with the N values, if the key is found, the mask will contain a 1 bit at the position
-        auto const key_found_mask = tsl::to_integral<SimdStyle, Idof>(tsl::equal<SimdStyle, Idof>(map_reg, keys_reg));
+        auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
         if (tsl::nequal<SimdStyle, Idof>(key_found_mask, all_false_mask)) {
           size_t position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
           return m_group_id_sink[lookup_position + position];

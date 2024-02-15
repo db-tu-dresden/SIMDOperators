@@ -1,11 +1,10 @@
-#include "algorithms/dbops/select.hpp"
-
 #include <catch2/catch_test_macros.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <random>
 
+#include "algorithms/dbops/scan.hpp"
 #include "simdops_testing.hpp"
 #include "tslCPUrt.hpp"
 #include "tslintrin.hpp"
