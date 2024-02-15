@@ -61,6 +61,9 @@ namespace tuddbs {
   template <typename HS, typename... Args>
   inline constexpr bool has_hints = HS::template has_types_t<Args...>::value;
 
+  template <typename HS, typename... Args>
+  inline constexpr bool has_any_hint = (has_hint<HS, Args> || ...);
+
   template <typename HS, typename Arg>
   using enable_if_has_hint_t = typename std::enable_if_t<has_hint<HS, Arg>, Arg>;
 

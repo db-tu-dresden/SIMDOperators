@@ -34,6 +34,7 @@ namespace tuddbs {
     namespace hashing {
       struct unique_keys {};
       struct size_exp_2 {};
+      struct keys_may_contain_zero {};
 
       struct linear_displacement {};
       struct refill {};
