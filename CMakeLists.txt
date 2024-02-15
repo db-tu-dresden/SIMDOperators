@@ -3,7 +3,7 @@ project(SimdOperators)
 
 get_directory_property(hasParent PARENT_DIRECTORY)
 
-if(${hasParent} STREQUAL "")
+if("${hasParent}" STREQUAL "")
   set(SIMDOPS_TESTING ON)
   set(SIMDOPS_BENCHMARKING ON)
 endif()
@@ -27,7 +27,6 @@ else()
   endif()
 
   add_subdirectory(test)
-  add_subdirectory(benchmarks)
   add_subdirectory(examples)
 
   if(SIMDOPS_BENCHMARKING)
