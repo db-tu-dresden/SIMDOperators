@@ -68,7 +68,7 @@ struct group_column_set_t {
 #define GLOBAL_GROUP_COUNT (1 << 15)
 #define HASH_BUCKET_COUNT (2 * GLOBAL_GROUP_COUNT)
 #define MAX_PARALLELISM_DEGREE 32
-#define BENCHMARK_ITERATIONS 2
+#define BENCHMARK_ITERATIONS 3
 
 namespace tuddbs {
   static uint64_t bench_seed{1708006188442894170};
@@ -84,7 +84,8 @@ namespace tuddbs {
   static void print_timings(const size_t normalizer) {
     std::stringstream ss;
     for (auto it = bench_timings.begin(); it != bench_timings.end(); ++it) {
-      ss << std::setw(2) << it->first << ": " << std::fixed << it->second / normalizer << std::endl;
+      ss << std::setw(2) << it->first << ": " << std::fixed << std::setprecision(2) << std::setw(12)
+         << it->second / normalizer << std::endl;
     }
     std::cout << ss.str() << std::endl;
   }
