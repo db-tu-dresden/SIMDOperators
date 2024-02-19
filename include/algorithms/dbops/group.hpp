@@ -25,12 +25,12 @@
 #define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_GROUP_HPP
 
 #include <cassert>
+#include <climits>
 #include <type_traits>
 
 #include "algorithms/dbops/hashing.hpp"
 #include "algorithms/dbops/simdops.hpp"
 #include "iterable.hpp"
-#include "static/simd/simd_type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
@@ -163,12 +163,17 @@ namespace tuddbs {
           default_hasher<SimdStyle, Idof>::hash_value(key), m_map_element_count));
 
       while (true) {
-        // load N values from the map
-        auto map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
+        typename SimdStyle::register_type map_reg;
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          // load N values from the map
+          map_reg = tsl::load<SimdStyle, Idof>(m_key_sink + lookup_position);
+        } else {
+          // load N values from the map
+          map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
+        }
         // compare the current key with the N values, if the key is found, the mask will contain a 1 bit at the position
         // of the found key
         auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
-        // if the key is found, we can stop the search, since we already inserted it into the map
         if (tsl::nequal<SimdStyle, Idof>(key_found_mask, all_false_mask)) {
           if constexpr (has_any_hint<HintSet, hints::hashing::keys_may_contain_zero,
                                      hints::grouping::global_first_occurence_required>) {
@@ -190,7 +195,6 @@ namespace tuddbs {
               }
             }
           }
-
           break;
         }
         // if the key is not found, we have to check if there is an empty bucket in the map
@@ -202,9 +206,8 @@ namespace tuddbs {
           m_original_positions_sink[m_group_id_count++] = key_position_in_data;
           break;
         }
-        lookup_position =
-          normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
-            lookup_position + SimdStyle::vector_element_count(), m_map_element_count));
+        lookup_position = normalizer<SimdStyle, HintSet, Idof>::normalize_value(
+          lookup_position + SimdStyle::vector_element_count(), m_map_element_count);
       }
     }
 
@@ -281,7 +284,7 @@ namespace tuddbs {
     template <class HS = HintSet, enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
                     PositionType start_position = 0) noexcept -> void {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
       // Get the end of the data
@@ -340,7 +343,7 @@ namespace tuddbs {
     auto merge(
       Grouping_Hash_Build_SIMD_Linear_Displacement<OtherSimdStlye, OtherHintSet, OtherIdof> const &other) noexcept
       -> void {
-      auto const not_found_mask = tsl::integral_all_false<SimdStyle, Idof>();
+      auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
 
       for (auto i = 0; i < other.m_map_element_count; ++i) {
@@ -349,9 +352,9 @@ namespace tuddbs {
           auto const key = other.m_key_sink[i];
           if constexpr (NeedsPosition) {
             auto original_key_position = other.m_original_positions_sink[gid];
-            insert<ExplicitMerge>(key, original_key_position, not_found_mask, empty_bucket_reg);
+            insert<ExplicitMerge>(key, original_key_position, all_false_mask, empty_bucket_reg);
           } else {
-            insert<ExplicitMerge>(key, 0, not_found_mask, empty_bucket_reg);
+            insert<ExplicitMerge>(key, 0, all_false_mask, empty_bucket_reg);
           }
         }
       }
@@ -466,7 +469,7 @@ namespace tuddbs {
     template <class HS = HintSet, enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>>
     auto operator()(SimdOpsIterable auto p_output_gids, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
                     SimdOpsIterable auto p_valid_masks) const noexcept -> void {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
       // Get the end of the data

@@ -31,6 +31,13 @@
 #include "tslintrin.hpp"
 
 namespace tuddbs {
+
+  namespace hints {
+    namespace memory {
+      struct aligned {};
+    }  // namespace memory
+  }    // namespace hints
+
   /**
    * @concept Integral
    * @brief Concept that checks if a type is integral.
