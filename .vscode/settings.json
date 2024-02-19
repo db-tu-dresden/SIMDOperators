@@ -6,5 +6,6 @@
   "clang-format.style": "file",
   "files.associations": {
     "${workspaceFolder}/tools/**/*.hpp": "plaintext"
-  }
+  },
+  "cmake.options.statusBarVisibility": "visible"
 }

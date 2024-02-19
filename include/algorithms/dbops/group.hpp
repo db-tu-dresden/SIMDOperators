@@ -175,21 +175,34 @@ namespace tuddbs {
         // of the found key
         auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
         if (tsl::nequal<SimdStyle, Idof>(key_found_mask, all_false_mask)) {
-          if constexpr (has_any_hint<HintSet, hints::hashing::keys_may_contain_zero,
-                                     hints::grouping::global_first_occurence_required>) {
-            auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
-            if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
-              // if the key is found, we have to check whether the key has the same value as an empty bucket
-              if (key == m_empty_bucket_value) {
-                auto group_id = m_group_id_sink[lookup_position + found_position];
-                if (group_id == m_invalid_gid) {
-                  m_group_id_sink[lookup_position + found_position] = m_group_id_count;
-                  m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+          auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
+          auto group_id = m_group_id_sink[lookup_position + found_position];
+          if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
+            // If the key can be the same value as an empty bucket, we have to make an additional check
+            if (key == m_empty_bucket_value) {
+              // If the current processed key equals the empty bucket value, we have check, whether the found position
+              // already contains the key. This is done by looking into the correspondig group id. If the group id is
+              // invalid, we did not see the key before and have to insert it. Otherwise we have to check, whether the
+              // current key position is smaller than the original position of the key.
+              if (group_id == m_invalid_gid) {
+                m_group_id_sink[lookup_position + found_position] = m_group_id_count;
+                m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+              } else {
+                if constexpr (has_hint<HintSet, hints::grouping::global_first_occurence_required>) {
+                  if (m_original_positions_sink[group_id] > key_position_in_data) {
+                    m_original_positions_sink[group_id] = key_position_in_data;
+                  }
+                }
+              }
+            } else {
+              if constexpr (has_hint<HintSet, hints::grouping::global_first_occurence_required>) {
+                if (m_original_positions_sink[group_id] > key_position_in_data) {
+                  m_original_positions_sink[group_id] = key_position_in_data;
                 }
               }
             }
-            if constexpr ((has_hint<HintSet, hints::grouping::global_first_occurence_required>)&&(CalledFromMerge)) {
-              auto group_id = m_group_id_sink[lookup_position + found_position];
+          } else {
+            if constexpr (has_hint<HintSet, hints::grouping::global_first_occurence_required>) {
               if (m_original_positions_sink[group_id] > key_position_in_data) {
                 m_original_positions_sink[group_id] = key_position_in_data;
               }
@@ -201,9 +214,31 @@ namespace tuddbs {
         auto const empty_bucket_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, empty_bucket_reg);
         if (tsl::nequal<SimdStyle, Idof>(empty_bucket_found_mask, all_false_mask)) {
           size_t empty_bucket_position = tsl::tzc<SimdStyle, Idof>(empty_bucket_found_mask);
-          m_key_sink[lookup_position + empty_bucket_position] = key;
-          m_group_id_sink[lookup_position + empty_bucket_position] = m_group_id_count;
-          m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+
+          if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
+            auto group_id = m_group_id_sink[lookup_position + empty_bucket_position];
+            if (group_id == m_invalid_gid) {
+              auto updated_empty_bucket_found_mask =
+                tsl::shift_right<SimdStyle, Idof>(empty_bucket_found_mask, empty_bucket_position + 1);
+              if (tsl::nequal<SimdStyle, Idof>(updated_empty_bucket_found_mask, all_false_mask)) {
+                // As there can be only a single occurence of the key that equals an empty bucket, we only have to use
+                // the first occurence
+                auto updated_empty_bucket_position =
+                  tsl::tzc<SimdStyle, Idof>(updated_empty_bucket_found_mask) + empty_bucket_position + 1;
+                m_key_sink[lookup_position + updated_empty_bucket_position] = key;
+                m_group_id_sink[lookup_position + updated_empty_bucket_position] = m_group_id_count;
+                m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+              }
+            } else {
+              m_key_sink[lookup_position + empty_bucket_position] = key;
+              m_group_id_sink[lookup_position + empty_bucket_position] = m_group_id_count;
+              m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+            }
+          } else {
+            m_key_sink[lookup_position + empty_bucket_position] = key;
+            m_group_id_sink[lookup_position + empty_bucket_position] = m_group_id_count;
+            m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+          }
           break;
         }
         lookup_position = normalizer<SimdStyle, HintSet, Idof>::normalize_value(

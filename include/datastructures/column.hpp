@@ -35,9 +35,9 @@ namespace tuddbs {
    */
   class InMemoryColumn {
    public:
-    using base_type = T;                        /**< The base type of the column data. */
-    using pointer_type = decltype(Allocator()); /**< Pointer type for accessing the column data. */
-    using const_pointer_type = T *const;        /**< Const pointer type for accessing the column data. */
+    using base_type = T;                         /**< The base type of the column data. */
+    using pointer_type = base_type *;            /**< Pointer type for accessing the column data. */
+    using const_pointer_type = base_type *const; /**< Const pointer type for accessing the column data. */
 
    private:
     Allocator m_allocator = [](size_t i) {
