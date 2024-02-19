@@ -34,7 +34,7 @@ struct GroupByOrigRecreator : Catch::Matchers::MatcherGenericBase {
     return true;
   }
 
-  std::string describe() const override { return "Original column could be recreated from groupby result"; }
+  std::string describe() const override { return "Original column could NOT be recreated from groupby result"; }
 };
 
 template <typename Range>
@@ -49,18 +49,39 @@ struct group_column_set_t {
   tuddbs::InMemoryColumn<T> map_gid_sink;
   tuddbs::InMemoryColumn<T> gext_sink;
 
-  explicit group_column_set_t(const size_t element_count, const size_t map_count)
-    : gids(element_count), map_key_sink(map_count), map_gid_sink(map_count), gext_sink(map_count) {}
-
-  explicit group_column_set_t(const size_t element_count, const size_t map_count, auto allocator, auto deleter)
-    : gids(element_count, allocator, deleter),
+  explicit group_column_set_t(const size_t map_count, auto allocator, auto deleter)
+    : gids(0),
       map_key_sink(map_count, allocator, deleter),
       map_gid_sink(map_count, allocator, deleter),
       gext_sink(map_count, allocator, deleter) {}
+
+  ~group_column_set_t() {}
+
+  void allocate_gid_column(size_t element_count, auto allocator, auto deleter) {
+    gids = tuddbs::InMemoryColumn<T>(element_count, allocator, deleter);
+  }
 };
+
+#define DATA_ELEMENT_COUNT (1 << 20)
+#define GLOBAL_GROUP_COUNT (1 << 15)
+#define HASH_BUCKET_COUNT (2 * DATA_ELEMENT_COUNT)
+#define MAX_PARALLELISM_DEGREE 32
+
+namespace tuddbs {
+  static uint64_t bench_seed{1708006188442894170};
+
+  static uint64_t get_bench_seed() {
+    if (bench_seed == 0) {
+      bench_seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    }
+    return bench_seed;
+  }
+}  // namespace tuddbs
 
 // #### Sequential Merge
 TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
+  std::cout << "[sse] uint64_t with Cascading Merge" << std::endl;
+  auto t_start = std::chrono::high_resolution_clock::now();
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
@@ -69,9 +90,6 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
                           hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
 
-  const size_t element_count = 1UL << 20;
-  const size_t map_count = 1UL << 24;
-
   auto group_allocator = [](size_t i) -> base_t * {
     return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
   };
@@ -84,39 +102,36 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
     (*builder)(data_start, data_end, start_offset);
   };
 
-  InMemoryColumn<base_t> column_to_group(element_count, group_allocator, group_deleter);
+  InMemoryColumn<base_t> column_to_group(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
   // auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  size_t seed = 1708006188442894170;
+  size_t seed = tuddbs::get_bench_seed();
   std::mt19937 mt(seed);
-  std::cerr << "Seed: " << seed << std::endl;
-  std::uniform_int_distribution<> dist(0, 2);
+  // std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, GLOBAL_GROUP_COUNT);
 
   for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
     (*it) = dist(mt);
   }
 
   // We currently require element_count to be divisible by parallelism_degree. Best case its a power of 2.
-  const size_t max_parallelism_degree = 16;
-
-  for (size_t parallelism_degree = 1; parallelism_degree <= max_parallelism_degree; parallelism_degree *= 2) {
-    std::cout << "=== Running with " << parallelism_degree << " Thread(s) ===" << std::endl;
-    const size_t elements_per_thread = element_count / parallelism_degree;
+  for (size_t parallelism_degree = 1; parallelism_degree <= MAX_PARALLELISM_DEGREE; parallelism_degree *= 2) {
+    // std::cout << "=== Running with " << parallelism_degree << " Thread(s) ===" << std::endl;
+    const size_t elements_per_thread = DATA_ELEMENT_COUNT / parallelism_degree;
     const size_t map_count_per_thread = 2 * elements_per_thread;
 
     std::vector<std::thread> pool;
     std::vector<group_t::builder_t *> builders;
     std::vector<group_state_t *> builder_states;
 
-    group_state_t group_columns(element_count, map_count, group_allocator, group_deleter);
+    group_state_t group_columns(HASH_BUCKET_COUNT, group_allocator, group_deleter);
     group_t::builder_t builder(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
-                               group_columns.gext_sink.begin(), map_count);
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
 
     // First grouper has a large-enough state to hold all groups later on.
     pool.emplace_back(parallel_build_groups, &column_to_group, &builder, 0, elements_per_thread, 0);
 
     for (size_t i = 1; i < parallelism_degree; ++i) {
-      builder_states.push_back(
-        new group_state_t(elements_per_thread, map_count_per_thread, group_allocator, group_deleter));
+      builder_states.push_back(new group_state_t(map_count_per_thread, group_allocator, group_deleter));
       const auto state = builder_states.back();
 
       builders.push_back(new group_t::builder_t(state->map_key_sink.begin(), state->map_gid_sink.begin(),
@@ -136,8 +151,9 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
     }
 
     group_t::grouper_t grouper(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
-                               group_columns.gext_sink.begin(), map_count);
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
 
+    group_columns.allocate_gid_column(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
     grouper(group_columns.gids.begin(), column_to_group.cbegin(), column_to_group.cend());
 
     REQUIRE_THAT(group_columns, GroupByRecreate(column_to_group));
@@ -146,9 +162,14 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
       delete state;
     }
   }
+  auto t_end = std::chrono::high_resolution_clock::now();
+  std::cout << "TestCase done in: " << std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count()
+            << " us" << std::endl;
 }
 
 TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx]") {
+  std::cout << "[avx2] uint64_t with Cascading Merge" << std::endl;
+  auto t_start = std::chrono::high_resolution_clock::now();
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
@@ -157,9 +178,6 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx]") {
                           hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
 
-  const size_t element_count = 1UL << 20;
-  const size_t map_count = 1UL << 24;
-
   auto group_allocator = [](size_t i) -> base_t * {
     return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
   };
@@ -172,38 +190,35 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx]") {
     (*builder)(data_start, data_end, start_offset);
   };
 
-  InMemoryColumn<base_t> column_to_group(element_count, group_allocator, group_deleter);
-  auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  InMemoryColumn<base_t> column_to_group(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+  size_t seed = tuddbs::get_bench_seed();
   std::mt19937 mt(seed);
-  std::cerr << "Seed: " << seed << std::endl;
-  std::uniform_int_distribution<> dist(0, 2);
+  // std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, GLOBAL_GROUP_COUNT);
 
   for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
     (*it) = dist(mt);
   }
 
   // We currently require element_count to be divisible by parallelism_degree. Best case its a power of 2.
-  const size_t max_parallelism_degree = 16;
-
-  for (size_t parallelism_degree = 1; parallelism_degree <= max_parallelism_degree; parallelism_degree *= 2) {
-    std::cout << "=== Running with " << parallelism_degree << " Thread(s) ===" << std::endl;
-    const size_t elements_per_thread = element_count / parallelism_degree;
+  for (size_t parallelism_degree = 1; parallelism_degree <= MAX_PARALLELISM_DEGREE; parallelism_degree *= 2) {
+    // std::cout << "=== Running with " << parallelism_degree << " Thread(s) ===" << std::endl;
+    const size_t elements_per_thread = DATA_ELEMENT_COUNT / parallelism_degree;
     const size_t map_count_per_thread = 2 * elements_per_thread;
 
     std::vector<std::thread> pool;
     std::vector<group_t::builder_t *> builders;
     std::vector<group_state_t *> builder_states;
 
-    group_state_t group_columns(element_count, map_count, group_allocator, group_deleter);
+    group_state_t group_columns(HASH_BUCKET_COUNT, group_allocator, group_deleter);
     group_t::builder_t builder(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
-                               group_columns.gext_sink.begin(), map_count);
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
 
     // First grouper has a large-enough state to hold all groups later on.
     pool.emplace_back(parallel_build_groups, &column_to_group, &builder, 0, elements_per_thread, 0);
 
     for (size_t i = 1; i < parallelism_degree; ++i) {
-      builder_states.push_back(
-        new group_state_t(elements_per_thread, map_count_per_thread, group_allocator, group_deleter));
+      builder_states.push_back(new group_state_t(map_count_per_thread, group_allocator, group_deleter));
       const auto state = builder_states.back();
 
       builders.push_back(new group_t::builder_t(state->map_key_sink.begin(), state->map_gid_sink.begin(),
@@ -223,8 +238,9 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx]") {
     }
 
     group_t::grouper_t grouper(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
-                               group_columns.gext_sink.begin(), map_count);
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
 
+    group_columns.allocate_gid_column(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
     grouper(group_columns.gids.begin(), column_to_group.cbegin(), column_to_group.cend());
 
     REQUIRE_THAT(group_columns, GroupByRecreate(column_to_group));
@@ -233,149 +249,286 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx]") {
       delete state;
     }
   }
+  auto t_end = std::chrono::high_resolution_clock::now();
+  std::cout << "TestCase done in: " << std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count()
+            << " us" << std::endl;
 }
 
 // #### Merge Tree
-// TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree", "[cpu][groupby-tree][uint64_t][avx2]") {
-//   using base_t = uint64_t;
-//   using namespace tuddbs;
-//   using group_t = Group<tsl::simd<uint64_t, tsl::avx2>,
-//                         OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
-//                                         hints::grouping::global_first_occurence_required>>;
-//   using group_state_t = group_column_set_t<base_t>;
+TEST_CASE("GroupBy for uint64_t with sse / Merge Tree", "[cpu][groupby-tree][uint64_t][sse]") {
+  std::cout << "[sse] uint64_t with Tree-Merge" << std::endl;
+  auto t_start = std::chrono::high_resolution_clock::now();
+  using base_t = uint64_t;
+  using namespace tuddbs;
+  using group_t =
+    Group<tsl::simd<uint64_t, tsl::sse>,
+          OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
+                          hints::grouping::global_first_occurence_required, hints::hashing::keys_may_contain_zero>>;
+  using group_state_t = group_column_set_t<base_t>;
 
-//   const size_t element_count = 1UL << 20;
-//   const size_t map_count = 1UL << 24;
+  auto group_allocator = [](size_t i) -> base_t * {
+    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
+  };
+  auto group_deleter = [](base_t *ptr) { _mm_free(ptr); };
 
-//   auto group_allocator = [](size_t i) -> base_t * {
-//     return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
-//   };
-//   auto group_deleter = [](base_t *ptr) { _mm_free(ptr); };
+  auto parallel_build_groups = [](InMemoryColumn<base_t> *data_col, group_t::builder_t *builder, size_t start_offset,
+                                  size_t elements, size_t tid) -> void {
+    auto data_start = data_col->cbegin(start_offset);
+    auto data_end = data_start + elements;
+    (*builder)(data_start, data_end, start_offset);
+  };
 
-//   auto parallel_build_groups = [element_count](InMemoryColumn<base_t> *data_col, group_t::builder_t *builder,
-//                                                size_t start_offset, size_t elements, size_t tid) -> void {
-//     std::cout << "Thread " << tid << " with " << elements << " elements (global: " << element_count << ")" <<
-//     std::endl; auto data_start = data_col->cbegin(start_offset); auto data_end = data_start + elements;
-//     (*builder)(data_start, data_end, start_offset);
-//   };
+  InMemoryColumn<base_t> column_to_group(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+  // auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  size_t seed = tuddbs::get_bench_seed();
+  std::mt19937 mt(seed);
+  // std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, GLOBAL_GROUP_COUNT);
 
-//   InMemoryColumn<base_t> column_to_group(element_count, group_allocator, group_deleter);
-//   std::mt19937 mt(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-//   std::uniform_int_distribution<> dist(1, map_count);
+  for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
+    (*it) = dist(mt);
+  }
 
-//   for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
-//     (*it) = dist(mt);
-//   }
+  // We currently require element_count to be divisible by parallelism_degree. Best case its a power of 2.
+  for (size_t parallelism_degree = 1; parallelism_degree <= MAX_PARALLELISM_DEGREE; parallelism_degree *= 2) {
+    // std::cout << "=== Running with " << parallelism_degree << " Thread(s) ===" << std::endl;
+    const size_t elements_per_thread = DATA_ELEMENT_COUNT / parallelism_degree;
+    const size_t map_count_per_thread = 2 * elements_per_thread;
 
-//   // We currently require element_count to be divisible by parallelism_degree. Best case its a power of 2.
-//   const size_t max_parallelism_degree = 16;
+    std::vector<std::thread> pool;
+    std::vector<group_t::builder_t *> builders;
+    std::vector<group_state_t *> builder_states;
 
-//   for (size_t parallelism_degree = 1; parallelism_degree <= max_parallelism_degree; parallelism_degree *= 2) {
-//     std::cout << "=== Running with " << parallelism_degree << " Thread(s) ===" << std::endl;
-//     const size_t elements_per_thread = element_count / parallelism_degree;
-//     const size_t map_count_per_thread = 2 * elements_per_thread;
+    for (size_t i = 0; i < parallelism_degree; ++i) {
+      builder_states.push_back(new group_state_t(map_count_per_thread, group_allocator, group_deleter));
+      const auto state = builder_states.back();
 
-//     std::vector<std::thread> pool;
-//     std::vector<group_t::builder_t *> builders;
-//     std::vector<group_state_t *> builder_states;
+      builders.push_back(new group_t::builder_t(state->map_key_sink.begin(), state->map_gid_sink.begin(),
+                                                state->gext_sink.begin(), map_count_per_thread));
 
-//     for (size_t i = 0; i < parallelism_degree; ++i) {
-//       builder_states.push_back(
-//         new group_state_t(elements_per_thread, map_count_per_thread, group_allocator, group_deleter));
-//       const auto state = builder_states.back();
+      pool.emplace_back(parallel_build_groups, &column_to_group, builders.back(), i * elements_per_thread,
+                        elements_per_thread, i);
+    }
 
-//       builders.push_back(new group_t::builder_t(state->map_key_sink.begin(), state->map_gid_sink.begin(),
-//                                                 state->gext_sink.begin(), map_count_per_thread));
+    for (auto &t : pool) {
+      t.join();
+    }
+    pool.clear();
 
-//       pool.emplace_back(parallel_build_groups, &column_to_group, builders.back(), i * elements_per_thread,
-//                         elements_per_thread, i);
-//     }
+    auto next_pow2 = [](uint64_t x) -> uint64_t { return x == 1 ? 1 : 1 << (64 - __builtin_clzl(x - 1)); };
 
-//     for (auto &t : pool) {
-//       t.join();
-//     }
-//     pool.clear();
+    group_state_t *final_merge_state = nullptr;
+    size_t final_map_count = 0;
 
-//     auto next_pow2 = [](uint64_t x) -> uint64_t { return x == 1 ? 1 : 1 << (64 - __builtin_clzl(x - 1)); };
+    // Tree merge
+    if (parallelism_degree > 1) {
+      using builder_vec_t = std::vector<group_t::builder_t *>;
+      using state_vec_t = std::vector<group_state_t *>;
+      size_t stages = parallelism_degree / 2;
 
-//     group_state_t *final_merge_state = nullptr;
-//     size_t final_map_count = 0;
+      state_vec_t states_empty;
+      builder_vec_t builders_empty;
 
-//     // Tree merge
-//     if (parallelism_degree > 1) {
-//       using builder_vec_t = std::vector<group_t::builder_t *>;
-//       using state_vec_t = std::vector<group_state_t *>;
-//       size_t stages = parallelism_degree / 2;
+      state_vec_t merge_states_last = builder_states;
+      builder_states.clear();
+      state_vec_t merge_states_current = states_empty;
 
-//       state_vec_t states_empty;
-//       builder_vec_t builders_empty;
+      builder_vec_t builders_last = builders;
+      builder_vec_t builders_current = builders_empty;
 
-//       state_vec_t &merge_states_last = builder_states;
-//       state_vec_t &merge_states_current = states_empty;
+      while (stages > 0) {
+        for (size_t i = 0; i < merge_states_last.size(); i += 2) {
+          const size_t max_distinct_values =
+            next_pow2(builders_last[i]->distinct_key_count() + builders_last[i + 1]->distinct_key_count());
 
-//       builder_vec_t &builders_last = builders;
-//       builder_vec_t &builders_current = builders_empty;
+          const size_t current_map_count = next_pow2(2 * max_distinct_values);
 
-//       while (stages > 0) {
-//         for (size_t i = 0; i < merge_states_last.size(); i += 2) {
-//           std::cout << "Stages: " << stages << " iteration: " << i << std::endl
-//                     << " merge_states_last: " << merge_states_last.size()
-//                     << " merge_states_current: " << merge_states_current.size() << std::endl
-//                     << " builders_last: " << builders_last.size() << " builders_current: " << builders_current.size()
-//                     << std::endl
-//                     << std::endl;
-//           const size_t max_distinct_values =
-//             builders_last[i]->distinct_key_count() + builders_last[i + 1]->distinct_key_count();
-//           std::cout << "Max Distincts: " << max_distinct_values << std::endl;
-//           const size_t current_map_count = next_pow2(2 * max_distinct_values);
-//           std::cout << "Current Map Count: " << current_map_count << std::endl;
-//           auto merge_state = new group_state_t(max_distinct_values, current_map_count, group_allocator,
-//           group_deleter); auto merge_builder = new group_t::builder_t(
-//             merge_state->map_key_sink.begin(), merge_state->map_gid_sink.begin(), merge_state->gext_sink.begin(), 0);
-//           std::cout << "Merging last builder [" << i << "]" << std::endl;
-//           merge_builder->merge(*(builders_last[i]));
-//           std::cout << "Merging last builder [" << i + 1 << "]" << std::endl;
-//           merge_builder->merge(*(builders_last[i + 1]));
-//           builders_current.push_back(merge_builder);
-//           merge_states_current.push_back(merge_state);
-//           final_map_count = std::max(final_map_count, current_map_count);
-//         }
-//         for (auto state : merge_states_last) {
-//           delete state;
-//         }
-//         for (auto builder : builders_last) {
-//           delete builder;
-//         }
-//         merge_states_last.clear();
-//         builders_last.clear();
+          auto merge_state = new group_state_t(current_map_count, group_allocator, group_deleter);
+          auto merge_builder =
+            new group_t::builder_t(merge_state->map_key_sink.begin(), merge_state->map_gid_sink.begin(),
+                                   merge_state->gext_sink.begin(), current_map_count);
 
-//         builders_current.swap(builders_last);
-//         merge_states_current.swap(merge_states_last);
+          merge_builder->merge(*(builders_last[i]));
+          merge_builder->merge(*(builders_last[i + 1]));
 
-//         // Advance stage counter
-//         stages /= 2;
-//       }
-//       std::cout << "Last merge state count: " << merge_states_last.size() << std::endl;
-//       final_merge_state = merge_states_last[0];
-//     } else {
-//       final_merge_state = builder_states[0];
-//       final_map_count = map_count_per_thread;
-//     }
+          builders_current.push_back(merge_builder);
+          merge_states_current.push_back(merge_state);
+          final_map_count = std::max(final_map_count, current_map_count);
+        }
+        for (auto state : merge_states_last) {
+          delete state;
+        }
+        for (auto builder : builders_last) {
+          delete builder;
+        }
+        merge_states_last.clear();
+        builders_last.clear();
 
-//     std::cout << "Grouping w/ final map count: " << final_map_count << std::endl;
-//     group_t::grouper_t grouper(final_merge_state->map_key_sink.begin(), final_merge_state->map_gid_sink.begin(),
-//                                final_merge_state->gext_sink.begin(), final_map_count);
+        builders_current.swap(builders_last);
+        merge_states_current.swap(merge_states_last);
 
-//     grouper(final_merge_state->gids.begin(), column_to_group.cbegin(), column_to_group.cend());
-//     std::cout << "Done." << std::endl;
+        // Advance stage counter
+        stages /= 2;
+      }
+      final_merge_state = merge_states_last[0];
+      builder_states.push_back(final_merge_state);
+    } else {
+      final_merge_state = builder_states[0];
+      final_map_count = map_count_per_thread;
+    }
 
-//     for (size_t i = 0; i < element_count; ++i) {
-//       REQUIRE(column_to_group.cbegin()[final_merge_state->gext_sink.cbegin()[final_merge_state->gids.cbegin()[i]]] ==
-//               column_to_group.cbegin()[i]);
-//     }
+    group_t::grouper_t grouper(final_merge_state->map_key_sink.begin(), final_merge_state->map_gid_sink.begin(),
+                               final_merge_state->gext_sink.begin(), final_map_count);
 
-//     for (auto state : builder_states) {
-//       delete state;
-//     }
-//   }
-// }
+    final_merge_state->allocate_gid_column(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+    grouper(final_merge_state->gids.begin(), column_to_group.cbegin(), column_to_group.cend());
+
+    REQUIRE_THAT(*final_merge_state, GroupByRecreate(column_to_group));
+
+    for (auto state : builder_states) {
+      delete state;
+    }
+  }
+  auto t_end = std::chrono::high_resolution_clock::now();
+  std::cout << "TestCase done in: " << std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count()
+            << " us" << std::endl;
+}
+
+TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree", "[cpu][groupby-tree][uint64_t][avx2]") {
+  std::cout << "[avx2] uint64_t with Tree-Merge" << std::endl;
+  auto t_start = std::chrono::high_resolution_clock::now();
+  using base_t = uint64_t;
+  using namespace tuddbs;
+  using group_t =
+    Group<tsl::simd<uint64_t, tsl::avx2>,
+          OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
+                          hints::grouping::global_first_occurence_required, hints::hashing::keys_may_contain_zero>>;
+  using group_state_t = group_column_set_t<base_t>;
+
+  auto group_allocator = [](size_t i) -> base_t * {
+    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
+  };
+  auto group_deleter = [](base_t *ptr) { _mm_free(ptr); };
+
+  auto parallel_build_groups = [](InMemoryColumn<base_t> *data_col, group_t::builder_t *builder, size_t start_offset,
+                                  size_t elements, size_t tid) -> void {
+    auto data_start = data_col->cbegin(start_offset);
+    auto data_end = data_start + elements;
+    (*builder)(data_start, data_end, start_offset);
+  };
+
+  InMemoryColumn<base_t> column_to_group(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+  // auto seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  size_t seed = tuddbs::get_bench_seed();
+  std::mt19937 mt(seed);
+  // std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, GLOBAL_GROUP_COUNT);
+
+  for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
+    (*it) = dist(mt);
+  }
+
+  // We currently require element_count to be divisible by parallelism_degree. Best case its a power of 2.
+  for (size_t parallelism_degree = 1; parallelism_degree <= MAX_PARALLELISM_DEGREE; parallelism_degree *= 2) {
+    // std::cout << "=== Running with " << parallelism_degree << " Thread(s) ===" << std::endl;
+    const size_t elements_per_thread = DATA_ELEMENT_COUNT / parallelism_degree;
+    const size_t map_count_per_thread = 2 * elements_per_thread;
+
+    std::vector<std::thread> pool;
+    std::vector<group_t::builder_t *> builders;
+    std::vector<group_state_t *> builder_states;
+
+    for (size_t i = 0; i < parallelism_degree; ++i) {
+      builder_states.push_back(new group_state_t(map_count_per_thread, group_allocator, group_deleter));
+      const auto state = builder_states.back();
+
+      builders.push_back(new group_t::builder_t(state->map_key_sink.begin(), state->map_gid_sink.begin(),
+                                                state->gext_sink.begin(), map_count_per_thread));
+
+      pool.emplace_back(parallel_build_groups, &column_to_group, builders.back(), i * elements_per_thread,
+                        elements_per_thread, i);
+    }
+
+    for (auto &t : pool) {
+      t.join();
+    }
+    pool.clear();
+
+    auto next_pow2 = [](uint64_t x) -> uint64_t { return x == 1 ? 1 : 1 << (64 - __builtin_clzl(x - 1)); };
+
+    group_state_t *final_merge_state = nullptr;
+    size_t final_map_count = 0;
+
+    // Tree merge
+    if (parallelism_degree > 1) {
+      using builder_vec_t = std::vector<group_t::builder_t *>;
+      using state_vec_t = std::vector<group_state_t *>;
+      size_t stages = parallelism_degree / 2;
+
+      state_vec_t states_empty;
+      builder_vec_t builders_empty;
+
+      state_vec_t merge_states_last = builder_states;
+      builder_states.clear();
+      state_vec_t merge_states_current = states_empty;
+
+      builder_vec_t builders_last = builders;
+      builder_vec_t builders_current = builders_empty;
+
+      while (stages > 0) {
+        for (size_t i = 0; i < merge_states_last.size(); i += 2) {
+          const size_t max_distinct_values =
+            next_pow2(builders_last[i]->distinct_key_count() + builders_last[i + 1]->distinct_key_count());
+
+          const size_t current_map_count = next_pow2(2 * max_distinct_values);
+
+          auto merge_state = new group_state_t(current_map_count, group_allocator, group_deleter);
+          auto merge_builder =
+            new group_t::builder_t(merge_state->map_key_sink.begin(), merge_state->map_gid_sink.begin(),
+                                   merge_state->gext_sink.begin(), current_map_count);
+
+          merge_builder->merge(*(builders_last[i]));
+          merge_builder->merge(*(builders_last[i + 1]));
+
+          builders_current.push_back(merge_builder);
+          merge_states_current.push_back(merge_state);
+          final_map_count = std::max(final_map_count, current_map_count);
+        }
+        for (auto state : merge_states_last) {
+          delete state;
+        }
+        for (auto builder : builders_last) {
+          delete builder;
+        }
+        merge_states_last.clear();
+        builders_last.clear();
+
+        builders_current.swap(builders_last);
+        merge_states_current.swap(merge_states_last);
+
+        // Advance stage counter
+        stages /= 2;
+      }
+      final_merge_state = merge_states_last[0];
+      builder_states.push_back(final_merge_state);
+    } else {
+      final_merge_state = builder_states[0];
+      final_map_count = map_count_per_thread;
+    }
+
+    group_t::grouper_t grouper(final_merge_state->map_key_sink.begin(), final_merge_state->map_gid_sink.begin(),
+                               final_merge_state->gext_sink.begin(), final_map_count);
+
+    final_merge_state->allocate_gid_column(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+    grouper(final_merge_state->gids.begin(), column_to_group.cbegin(), column_to_group.cend());
+
+    REQUIRE_THAT(*final_merge_state, GroupByRecreate(column_to_group));
+
+    for (auto state : builder_states) {
+      delete state;
+    }
+  }
+  auto t_end = std::chrono::high_resolution_clock::now();
+  std::cout << "TestCase done in: " << std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count()
+            << " us" << std::endl;
+}
