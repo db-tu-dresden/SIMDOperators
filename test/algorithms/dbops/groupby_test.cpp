@@ -1,3 +1,5 @@
+#include "algorithms/dbops/groupby/groupby.hpp"
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_templated.hpp>
 #include <chrono>
@@ -9,9 +11,8 @@
 #include <thread>
 #include <vector>
 
-#include "algorithms/dbops/group.hpp"
-#include "algorithms/dbops/hashing.hpp"
-#include "algorithms/dbops/simdops.hpp"
+#include "algorithms/dbops/dbops_hints.hpp"
+#include "algorithms/utils/hashing.hpp"
 #include "datastructures/column.hpp"
 
 #define DATA_ELEMENT_COUNT (1 << 22)

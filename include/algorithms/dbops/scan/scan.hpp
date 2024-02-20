@@ -24,21 +24,14 @@
 #ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_HPP
 #define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_HPP
 
-#include "algorithms/dbops/simdops.hpp"
+#include "algorithms/dbops/dbops_hints.hpp"
+#include "algorithms/dbops/scan/scan_hints.hpp"
+#include "algorithms/utils/hinting.hpp"
 #include "iterable.hpp"
 #include "static/simd/simd_type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
-
-  namespace hints {
-    namespace operators {
-      namespace scan {
-        struct count_bits {};
-      }  // namespace scan
-    }    // namespace operators
-  }      // namespace hints
-
   template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,
             class HintSet = OperatorHintSet<hints::intermediate::bit_mask>, typename Idof = tsl::workaround>
   class Generic_Scan {

@@ -21,10 +21,10 @@
  * @brief
  */
 
-#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_HASHING_HPP
-#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_HASHING_HPP
+#ifndef SIMDOPS_INCLUDE_ALGORITHMS_UTILS_HASHING_HPP
+#define SIMDOPS_INCLUDE_ALGORITHMS_UTILS_HASHING_HPP
 
-#include "algorithms/dbops/simdops.hpp"
+#include "algorithms/utils/hinting.hpp"
 #include "iterable.hpp"
 #include "tslintrin.hpp"
 

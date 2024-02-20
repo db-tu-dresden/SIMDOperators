@@ -17,29 +17,24 @@
  */
 // ------------------------------------------------------------------- //
 /**
- * @file group.hpp
+ * @file groupby_simd_linear_displacement.hpp
  * @brief
  */
 
-#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_GROUP_HPP
-#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_GROUP_HPP
+#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_GROUPBY_GROUPBY_SIMD_LINEAR_DISPLACEMENT_HPP
+#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_GROUPBY_GROUPBY_SIMD_LINEAR_DISPLACEMENT_HPP
 
 #include <cassert>
 #include <climits>
 #include <type_traits>
 
-#include "algorithms/dbops/hashing.hpp"
-#include "algorithms/dbops/simdops.hpp"
+#include "algorithms/dbops/dbops_hints.hpp"
+#include "algorithms/dbops/groupby/groupby_hints.hpp"
+#include "algorithms/utils/hashing.hpp"
 #include "iterable.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
-
-  namespace hints {
-    namespace grouping {
-      struct global_first_occurence_required {};
-    }  // namespace grouping
-  }    // namespace hints
 
   /**
    * @brief A hash table implementation for grouping elements using SIMD and linear displacement.
@@ -229,9 +224,9 @@ namespace tuddbs {
 
           if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
             auto group_id = m_group_id_sink[lookup_position + empty_bucket_position];
-            if (group_id == m_invalid_gid) {
+            if (group_id != m_invalid_gid) {
               auto updated_empty_bucket_found_mask =
-                tsl::shift_right<SimdStyle, Idof>(empty_bucket_found_mask, empty_bucket_position + 1);
+                tsl::shift_right<SimdStyle, false, Idof>(empty_bucket_found_mask, empty_bucket_position + 1);
               if (tsl::nequal<SimdStyle, Idof>(updated_empty_bucket_found_mask, all_false_mask)) {
                 // As there can be only a single occurence of the key that equals an empty bucket, we only have to use
                 // the first occurence
@@ -456,7 +451,7 @@ namespace tuddbs {
       auto lookup_position =
         normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
           default_hasher<SimdStyle, Idof>::hash_value(key), m_map_element_count));
-
+      // std::cout << "Search Key: " << key << "\n";
       while (true) {
         // load N values from the map
         auto map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
@@ -466,9 +461,8 @@ namespace tuddbs {
           size_t position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
           return m_group_id_sink[lookup_position + position];
         }
-        lookup_position =
-          normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
-            lookup_position + SimdStyle::vector_element_count(), m_map_element_count));
+        lookup_position = normalizer<SimdStyle, HintSet, Idof>::normalize_value(
+          lookup_position + SimdStyle::vector_element_count(), m_map_element_count);
       }
       // this should never be reached
       return 0;
@@ -550,24 +544,6 @@ namespace tuddbs {
     auto merge(Grouper_SIMD_Linear_Displacement const &other) const noexcept -> void {}
 
     auto finalize() const noexcept -> void {}
-  };
-
-  template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::hashing::size_exp_2>,
-            typename Idof = tsl::workaround>
-  struct Group_SIMD_Linear_Displacement {
-    using builder_t = Grouping_Hash_Build_SIMD_Linear_Displacement<_SimdStyle, HintSet, Idof>;
-    using grouper_t = Grouper_SIMD_Linear_Displacement<_SimdStyle, HintSet, Idof>;
-  };
-
-  template <tsl::VectorProcessingStyle _SimdStyle,
-            class HintSet = OperatorHintSet<hints::hashing::size_exp_2, hints::hashing::linear_displacement>,
-            typename Idof = tsl::workaround>
-  struct Group {
-    using base_class = std::conditional_t<has_hints<HintSet, hints::hashing::linear_displacement> &&
-                                            !has_hint<HintSet, hints::hashing::refill>,
-                                          Group_SIMD_Linear_Displacement<_SimdStyle, HintSet, Idof>, void>;
-    using builder_t = typename base_class::builder_t;
-    using grouper_t = typename base_class::grouper_t;
   };
 }  // namespace tuddbs
 #endif
