@@ -5,21 +5,22 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "(gdb) Launch",
+      "name": "Debug Groupby Test",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/tests/groupby_test",
       "args": [],
       "stopAtEntry": false,
-      "cwd": "${fileDirname}",
+      "cwd": "${workspaceFolder}",
       "environment": [],
       "externalConsole": false,
       "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
       "setupCommands": [
-          {
-              "description": "Enable pretty-printing for gdb",
-              "text": "-enable-pretty-printing",
-              "ignoreFailures": true
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
           },
           {
               "description": "Set Disassembly Flavor to Intel",
@@ -28,6 +29,5 @@
           }
       ]
     }
-
   ]
 }

@@ -60,5 +60,6 @@
     "regex": "cpp",
     "bitset": "cpp",
     "thread": "cpp"
-  }
+  },
+  "cmake.options.statusBarVisibility": "visible"
 }

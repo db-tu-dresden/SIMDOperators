@@ -25,12 +25,12 @@
 #define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_GROUP_HPP
 
 #include <cassert>
+#include <climits>
 #include <type_traits>
 
 #include "algorithms/dbops/hashing.hpp"
 #include "algorithms/dbops/simdops.hpp"
 #include "iterable.hpp"
-#include "static/simd/simd_type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
@@ -76,12 +76,18 @@ namespace tuddbs {
     size_t const m_map_element_count;
     size_t m_group_id_count;
 
-    size_t const m_empty_bucket_value = 0;
-
-    constexpr static PositionType const m_invalid_position = std::numeric_limits<PositionType>::max();
-    constexpr static GroupIdType const m_invalid_gid = std::numeric_limits<GroupIdType>::max();
+    KeyType const m_empty_bucket_value;
+    PositionType const m_invalid_position;
+    GroupIdType const m_invalid_gid;
 
    public:
+    auto distinct_key_count() const noexcept { return m_group_id_count; }
+    auto empty_bucket_value() const noexcept { return m_empty_bucket_value; }
+    auto invalid_position() const noexcept { return m_invalid_position; }
+    auto invalid_gid() const noexcept { return m_invalid_gid; }
+
+   public:
+    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(void) = delete;
     /**
      * @brief Constructs a Grouping_Hash_Build_SIMD_Linear_Displacement object.
      *
@@ -91,15 +97,19 @@ namespace tuddbs {
      * @param p_map_element_count The number of elements in the hash table.
      * @param initialize Flag indicating whether to initialize the hash table with empty values.
      */
-    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(SimdOpsIterable auto p_key_sink,
-                                                          SimdOpsIterable auto p_group_id_sink,
-                                                          SimdOpsIterable auto p_original_first_occurence_position_sink,
-                                                          size_t p_map_element_count, bool initialize = true)
+    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(
+      SimdOpsIterable auto p_key_sink, SimdOpsIterable auto p_group_id_sink,
+      SimdOpsIterable auto p_original_first_occurence_position_sink, size_t p_map_element_count,
+      KeyType p_empty_bucket_value = 0, PositionType p_invalid_position = std::numeric_limits<PositionType>::max(),
+      GroupIdType p_invalid_gid = std::numeric_limits<GroupIdType>::max(), bool initialize = true)
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_original_first_occurence_position_sink)),
         m_map_element_count(p_map_element_count),
-        m_group_id_count(0) {
+        m_group_id_count(0),
+        m_empty_bucket_value(p_empty_bucket_value),
+        m_invalid_position(p_invalid_position),
+        m_invalid_gid(p_invalid_gid) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
@@ -121,7 +131,10 @@ namespace tuddbs {
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_original_first_occurence_position_sink)),
         m_map_element_count(p_map_element_count),
-        m_group_id_count(0) {
+        m_group_id_count(0),
+        m_empty_bucket_value(other.empty_bucket_value()),
+        m_invalid_position(other.invalid_position()),
+        m_invalid_gid(other.invalid_gid()) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
@@ -130,7 +143,7 @@ namespace tuddbs {
         m_group_id_sink[i] = m_invalid_gid;
         m_original_positions_sink[i] = m_invalid_position;
       }
-      merge<true, false>(other);
+      merge<true>(other);
     }
 
     /**
@@ -151,7 +164,6 @@ namespace tuddbs {
      * @param all_false_mask The SIMD mask representing all false values.
      * @param empty_bucket_reg The SIMD register containing the value representing an empty bucket.
      */
-    template <bool CalledFromMerge = false>
     TSL_FORCE_INLINE auto insert(typename SimdStyle::base_type const key, PositionType const key_position_in_data,
                                  typename SimdStyle::imask_type const all_false_mask,
                                  typename SimdStyle::register_type const empty_bucket_reg) noexcept -> void {
@@ -163,48 +175,86 @@ namespace tuddbs {
           default_hasher<SimdStyle, Idof>::hash_value(key), m_map_element_count));
 
       while (true) {
-        // load N values from the map
-        auto map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
+        typename SimdStyle::register_type map_reg;
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          // load N values from the map
+          map_reg = tsl::load<SimdStyle, Idof>(m_key_sink + lookup_position);
+        } else {
+          // load N values from the map
+          map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
+        }
         // compare the current key with the N values, if the key is found, the mask will contain a 1 bit at the position
         // of the found key
         auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
-        // if the key is found, we can stop the search, since we already inserted it into the map
         if (tsl::nequal<SimdStyle, Idof>(key_found_mask, all_false_mask)) {
-          if constexpr (has_any_hint<HintSet, hints::hashing::keys_may_contain_zero,
-                                     hints::grouping::global_first_occurence_required>) {
-            auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
-            if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
-              // if the key is found, we have to check whether the key has the same value as an empty bucket
-              if (key == m_empty_bucket_value) {
-                auto group_id = m_group_id_sink[lookup_position + found_position];
-                if (group_id == m_invalid_gid) {
-                  m_group_id_sink[lookup_position + found_position] = m_group_id_count;
-                  m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+          auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found_mask);
+          auto group_id = m_group_id_sink[lookup_position + found_position];
+          if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
+            // If the key can be the same value as an empty bucket, we have to make an additional check
+            if (key == m_empty_bucket_value) {
+              // If the current processed key equals the empty bucket value, we have check, whether the found position
+              // already contains the key. This is done by looking into the correspondig group id. If the group id is
+              // invalid, we did not see the key before and have to insert it. Otherwise we have to check, whether the
+              // current key position is smaller than the original position of the key.
+              if (group_id == m_invalid_gid) {
+                m_group_id_sink[lookup_position + found_position] = m_group_id_count;
+                m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+              } else {
+                if constexpr (has_hint<HintSet, hints::grouping::global_first_occurence_required>) {
+                  if (m_original_positions_sink[group_id] > key_position_in_data) {
+                    m_original_positions_sink[group_id] = key_position_in_data;
+                  }
+                }
+              }
+            } else {
+              if constexpr (has_hint<HintSet, hints::grouping::global_first_occurence_required>) {
+                if (m_original_positions_sink[group_id] > key_position_in_data) {
+                  m_original_positions_sink[group_id] = key_position_in_data;
                 }
               }
             }
-            if constexpr ((has_hint<HintSet, hints::grouping::global_first_occurence_required>)&&(CalledFromMerge)) {
-              auto group_id = m_group_id_sink[lookup_position + found_position];
+          } else {
+            if constexpr (has_hint<HintSet, hints::grouping::global_first_occurence_required>) {
               if (m_original_positions_sink[group_id] > key_position_in_data) {
                 m_original_positions_sink[group_id] = key_position_in_data;
               }
             }
           }
-
           break;
         }
         // if the key is not found, we have to check if there is an empty bucket in the map
         auto const empty_bucket_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, empty_bucket_reg);
         if (tsl::nequal<SimdStyle, Idof>(empty_bucket_found_mask, all_false_mask)) {
           size_t empty_bucket_position = tsl::tzc<SimdStyle, Idof>(empty_bucket_found_mask);
-          m_key_sink[lookup_position + empty_bucket_position] = key;
-          m_group_id_sink[lookup_position + empty_bucket_position] = m_group_id_count;
-          m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+
+          if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
+            auto group_id = m_group_id_sink[lookup_position + empty_bucket_position];
+            if (group_id == m_invalid_gid) {
+              auto updated_empty_bucket_found_mask =
+                tsl::shift_right<SimdStyle, Idof>(empty_bucket_found_mask, empty_bucket_position + 1);
+              if (tsl::nequal<SimdStyle, Idof>(updated_empty_bucket_found_mask, all_false_mask)) {
+                // As there can be only a single occurence of the key that equals an empty bucket, we only have to use
+                // the first occurence
+                auto updated_empty_bucket_position =
+                  tsl::tzc<SimdStyle, Idof>(updated_empty_bucket_found_mask) + empty_bucket_position + 1;
+                m_key_sink[lookup_position + updated_empty_bucket_position] = key;
+                m_group_id_sink[lookup_position + updated_empty_bucket_position] = m_group_id_count;
+                m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+              }
+            } else {
+              m_key_sink[lookup_position + empty_bucket_position] = key;
+              m_group_id_sink[lookup_position + empty_bucket_position] = m_group_id_count;
+              m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+            }
+          } else {
+            m_key_sink[lookup_position + empty_bucket_position] = key;
+            m_group_id_sink[lookup_position + empty_bucket_position] = m_group_id_count;
+            m_original_positions_sink[m_group_id_count++] = key_position_in_data;
+          }
           break;
         }
-        lookup_position =
-          normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
-            lookup_position + SimdStyle::vector_element_count(), m_map_element_count));
+        lookup_position = normalizer<SimdStyle, HintSet, Idof>::normalize_value(
+          lookup_position + SimdStyle::vector_element_count(), m_map_element_count);
       }
     }
 
@@ -281,7 +331,7 @@ namespace tuddbs {
     template <class HS = HintSet, enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
                     PositionType start_position = 0) noexcept -> void {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
       // Get the end of the data
@@ -332,26 +382,29 @@ namespace tuddbs {
      * This function merges the contents of another hash table into this hash table. It iterates over the other hash
      * table and inserts each non-empty key into this hash table using SIMD instructions.
      *
+     * @tparam NeedsPosition Flag indicating whether the hash table needs to store the original positions of the keys.
      * @param other The other hash table to merge.
      */
-    template <tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof,
-              bool NeedsPosition = has_hint<HintSet, hints::grouping::global_first_occurence_required>,
-              bool ExplicitMerge = true>
+    template <bool NeedsPosition = has_hint<HintSet, hints::grouping::global_first_occurence_required>,
+              tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof>
     auto merge(
       Grouping_Hash_Build_SIMD_Linear_Displacement<OtherSimdStlye, OtherHintSet, OtherIdof> const &other) noexcept
       -> void {
-      auto const not_found_mask = tsl::integral_all_false<SimdStyle, Idof>();
+      auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
-
+      auto const other_invalid_gid = other.invalid_gid();
+      auto const other_gid_sink = other.m_group_id_sink;
+      auto const other_key_sink = other.m_key_sink;
+      auto const other_position_sink = other.m_original_positions_sink;
       for (auto i = 0; i < other.m_map_element_count; ++i) {
-        auto const gid = other.m_group_id_sink[i];
-        if (gid != m_invalid_gid) {
-          auto const key = other.m_key_sink[i];
+        auto const gid = other_gid_sink[i];
+        if (gid != other_invalid_gid) {
+          auto const key = other_key_sink[i];
           if constexpr (NeedsPosition) {
-            auto original_key_position = other.m_original_positions_sink[gid];
-            insert<ExplicitMerge>(key, original_key_position, not_found_mask, empty_bucket_reg);
+            auto original_key_position = other_position_sink[gid];
+            insert(key, original_key_position, all_false_mask, empty_bucket_reg);
           } else {
-            insert<ExplicitMerge>(key, 0, not_found_mask, empty_bucket_reg);
+            insert(key, 0, all_false_mask, empty_bucket_reg);
           }
         }
       }
@@ -363,8 +416,6 @@ namespace tuddbs {
      * This function performs any necessary finalization steps for the hash table. Currently, it does nothing.
      */
     auto finalize() const noexcept -> void {}
-
-    auto distinct_key_count() const noexcept { return m_group_id_count; }
   };
 
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::hashing::size_exp_2>,
@@ -466,7 +517,7 @@ namespace tuddbs {
     template <class HS = HintSet, enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>>
     auto operator()(SimdOpsIterable auto p_output_gids, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
                     SimdOpsIterable auto p_valid_masks) const noexcept -> void {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
       // Get the end of the data
