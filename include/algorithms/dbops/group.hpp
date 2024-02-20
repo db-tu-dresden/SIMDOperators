@@ -76,12 +76,18 @@ namespace tuddbs {
     size_t const m_map_element_count;
     size_t m_group_id_count;
 
-    size_t const m_empty_bucket_value = 0;
-
-    constexpr static PositionType const m_invalid_position = std::numeric_limits<PositionType>::max();
-    constexpr static GroupIdType const m_invalid_gid = std::numeric_limits<GroupIdType>::max();
+    KeyType const m_empty_bucket_value;
+    PositionType const m_invalid_position;
+    GroupIdType const m_invalid_gid;
 
    public:
+    auto distinct_key_count() const noexcept { return m_group_id_count; }
+    auto empty_bucket_value() const noexcept { return m_empty_bucket_value; }
+    auto invalid_position() const noexcept { return m_invalid_position; }
+    auto invalid_gid() const noexcept { return m_invalid_gid; }
+
+   public:
+    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(void) = delete;
     /**
      * @brief Constructs a Grouping_Hash_Build_SIMD_Linear_Displacement object.
      *
@@ -91,15 +97,19 @@ namespace tuddbs {
      * @param p_map_element_count The number of elements in the hash table.
      * @param initialize Flag indicating whether to initialize the hash table with empty values.
      */
-    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(SimdOpsIterable auto p_key_sink,
-                                                          SimdOpsIterable auto p_group_id_sink,
-                                                          SimdOpsIterable auto p_original_first_occurence_position_sink,
-                                                          size_t p_map_element_count, bool initialize = true)
+    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(
+      SimdOpsIterable auto p_key_sink, SimdOpsIterable auto p_group_id_sink,
+      SimdOpsIterable auto p_original_first_occurence_position_sink, size_t p_map_element_count,
+      KeyType p_empty_bucket_value = 0, PositionType p_invalid_position = std::numeric_limits<PositionType>::max(),
+      GroupIdType p_invalid_gid = std::numeric_limits<GroupIdType>::max(), bool initialize = true)
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_original_first_occurence_position_sink)),
         m_map_element_count(p_map_element_count),
-        m_group_id_count(0) {
+        m_group_id_count(0),
+        m_empty_bucket_value(p_empty_bucket_value),
+        m_invalid_position(p_invalid_position),
+        m_invalid_gid(p_invalid_gid) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
@@ -121,7 +131,10 @@ namespace tuddbs {
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_original_first_occurence_position_sink)),
         m_map_element_count(p_map_element_count),
-        m_group_id_count(0) {
+        m_group_id_count(0),
+        m_empty_bucket_value(other.empty_bucket_value()),
+        m_invalid_position(other.invalid_position()),
+        m_invalid_gid(other.invalid_gid()) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
@@ -130,7 +143,7 @@ namespace tuddbs {
         m_group_id_sink[i] = m_invalid_gid;
         m_original_positions_sink[i] = m_invalid_position;
       }
-      merge<true, false>(other);
+      merge<true>(other);
     }
 
     /**
@@ -151,7 +164,6 @@ namespace tuddbs {
      * @param all_false_mask The SIMD mask representing all false values.
      * @param empty_bucket_reg The SIMD register containing the value representing an empty bucket.
      */
-    template <bool CalledFromMerge = false>
     TSL_FORCE_INLINE auto insert(typename SimdStyle::base_type const key, PositionType const key_position_in_data,
                                  typename SimdStyle::imask_type const all_false_mask,
                                  typename SimdStyle::register_type const empty_bucket_reg) noexcept -> void {
@@ -370,26 +382,29 @@ namespace tuddbs {
      * This function merges the contents of another hash table into this hash table. It iterates over the other hash
      * table and inserts each non-empty key into this hash table using SIMD instructions.
      *
+     * @tparam NeedsPosition Flag indicating whether the hash table needs to store the original positions of the keys.
      * @param other The other hash table to merge.
      */
-    template <tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof,
-              bool NeedsPosition = has_hint<HintSet, hints::grouping::global_first_occurence_required>,
-              bool ExplicitMerge = true>
+    template <bool NeedsPosition = has_hint<HintSet, hints::grouping::global_first_occurence_required>,
+              tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof>
     auto merge(
       Grouping_Hash_Build_SIMD_Linear_Displacement<OtherSimdStlye, OtherHintSet, OtherIdof> const &other) noexcept
       -> void {
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
-
+      auto const other_invalid_gid = other.invalid_gid();
+      auto const other_gid_sink = other.m_group_id_sink;
+      auto const other_key_sink = other.m_key_sink;
+      auto const other_position_sink = other.m_original_positions_sink;
       for (auto i = 0; i < other.m_map_element_count; ++i) {
-        auto const gid = other.m_group_id_sink[i];
-        if (gid != m_invalid_gid) {
-          auto const key = other.m_key_sink[i];
+        auto const gid = other_gid_sink[i];
+        if (gid != other_invalid_gid) {
+          auto const key = other_key_sink[i];
           if constexpr (NeedsPosition) {
-            auto original_key_position = other.m_original_positions_sink[gid];
-            insert<ExplicitMerge>(key, original_key_position, all_false_mask, empty_bucket_reg);
+            auto original_key_position = other_position_sink[gid];
+            insert(key, original_key_position, all_false_mask, empty_bucket_reg);
           } else {
-            insert<ExplicitMerge>(key, 0, all_false_mask, empty_bucket_reg);
+            insert(key, 0, all_false_mask, empty_bucket_reg);
           }
         }
       }
@@ -401,8 +416,6 @@ namespace tuddbs {
      * This function performs any necessary finalization steps for the hash table. Currently, it does nothing.
      */
     auto finalize() const noexcept -> void {}
-
-    auto distinct_key_count() const noexcept { return m_group_id_count; }
   };
 
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::hashing::size_exp_2>,
