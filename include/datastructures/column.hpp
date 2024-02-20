@@ -74,6 +74,13 @@ namespace tuddbs {
      * elements.
      * @param count The number of elements in the column.
      */
+    explicit InMemoryColumn() noexcept : m_data(nullptr), m_end(nullptr), m_count(0), m_size(0), m_owns_data(false) {}
+
+    /**
+     * @brief Constructs an InMemoryColumn with the specified number of
+     * elements.
+     * @param count The number of elements in the column.
+     */
     explicit InMemoryColumn(size_t count) noexcept
       : m_data(m_allocator(count)), m_end(m_data + count), m_count(count), m_size(count * sizeof(T)) {}
 

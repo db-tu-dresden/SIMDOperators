@@ -14,6 +14,12 @@
 #include "algorithms/dbops/simdops.hpp"
 #include "datastructures/column.hpp"
 
+#define DATA_ELEMENT_COUNT (1 << 22)
+#define GLOBAL_GROUP_COUNT (1 << 15)
+#define HASH_BUCKET_COUNT (2 * GLOBAL_GROUP_COUNT)
+#define MAX_PARALLELISM_DEGREE 32
+#define BENCHMARK_ITERATIONS 3
+
 template <typename Range>
 struct GroupByOrigRecreator : Catch::Matchers::MatcherGenericBase {
   Range const &m_orig_column;
@@ -52,7 +58,7 @@ struct group_column_set_t {
   tuddbs::InMemoryColumn<T> gext_sink;
 
   explicit group_column_set_t(const size_t map_count, auto allocator, auto deleter)
-    : gids(0),
+    : gids(),
       map_key_sink(map_count, allocator, deleter),
       map_gid_sink(map_count, allocator, deleter),
       gext_sink(map_count, allocator, deleter) {}
@@ -63,12 +69,6 @@ struct group_column_set_t {
     gids = tuddbs::InMemoryColumn<T>(element_count, allocator, deleter);
   }
 };
-
-#define DATA_ELEMENT_COUNT (1 << 22)
-#define GLOBAL_GROUP_COUNT (1 << 15)
-#define HASH_BUCKET_COUNT (2 * GLOBAL_GROUP_COUNT)
-#define MAX_PARALLELISM_DEGREE 32
-#define BENCHMARK_ITERATIONS 3
 
 namespace tuddbs {
   static uint64_t bench_seed{1708006188442894170};
@@ -789,15 +789,28 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][group
       std::vector<group_t::builder_t *> builders;
       std::vector<group_state_t *> builder_states;
 
-      for (size_t i = 0; i < parallelism_degree; ++i) {
-        builder_states.push_back(new group_state_t(map_count_per_thread, group_allocator, group_deleter));
-        const auto state = builder_states.back();
+      if (parallelism_degree == 1) {
+        group_state_t *group_columns = new group_state_t(HASH_BUCKET_COUNT, group_allocator, group_deleter);
+        group_t::builder_t *builder =
+          new group_t::builder_t(group_columns->map_key_sink.begin(), group_columns->map_gid_sink.begin(),
+                                 group_columns->gext_sink.begin(), HASH_BUCKET_COUNT);
 
-        builders.push_back(new group_t::builder_t(state->map_key_sink.begin(), state->map_gid_sink.begin(),
-                                                  state->gext_sink.begin(), map_count_per_thread));
+        // First grouper has a large-enough state to hold all groups later on.
+        builders.push_back(builder);
+        builder_states.push_back(group_columns);
+        pool.emplace_back(parallel_build_groups, &column_to_group, builder, 0, elements_per_thread, 0);
+      } else {
+        for (size_t i = 0; i < parallelism_degree; ++i) {
+          group_state_t *group_columns = new group_state_t(map_count_per_thread, group_allocator, group_deleter);
+          group_t::builder_t *builder =
+            new group_t::builder_t(group_columns->map_key_sink.begin(), group_columns->map_gid_sink.begin(),
+                                   group_columns->gext_sink.begin(), map_count_per_thread);
 
-        pool.emplace_back(parallel_build_groups, &column_to_group, builders.back(), i * elements_per_thread,
-                          elements_per_thread, i);
+          builders.push_back(builder);
+          builder_states.push_back(group_columns);
+          pool.emplace_back(parallel_build_groups, &column_to_group, builders.back(), i * elements_per_thread,
+                            elements_per_thread, i);
+        }
       }
 
       for (auto &t : pool) {
@@ -810,13 +823,12 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][group
       group_state_t *final_merge_state = nullptr;
       size_t final_map_count = 0;
 
-      std::mutex state_mutex;
-      std::mutex builder_mutex;
       using builder_vec_t = std::vector<group_t::builder_t *>;
       using state_vec_t = std::vector<group_state_t *>;
-      auto do_parallel_merge = [&state_mutex, &builder_mutex, next_pow2, group_allocator, group_deleter](
+      auto do_parallel_merge = [next_pow2, group_allocator, group_deleter](
                                  group_t::builder_t *b1, group_t::builder_t *b2, state_vec_t *merge_states_current,
-                                 builder_vec_t *builders_current, size_t *largest_map_count) -> void {
+                                 builder_vec_t *builders_current, std::vector<size_t> *largest_map_count,
+                                 size_t tid) -> void {
         const size_t max_distinct_values = next_pow2(b1->distinct_key_count() + b2->distinct_key_count());
         const size_t current_map_count = next_pow2(2 * max_distinct_values);
         auto merge_state = new group_state_t(current_map_count, group_allocator, group_deleter);
@@ -827,15 +839,9 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][group
         merge_builder->merge(*b1);
         merge_builder->merge(*b2);
 
-        {
-          std::lock_guard lk(state_mutex);
-          merge_states_current->push_back(merge_state);
-        }
-        {
-          std::lock_guard lk(builder_mutex);
-          builders_current->push_back(merge_builder);
-          *largest_map_count = std::max(*largest_map_count, current_map_count);
-        }
+        merge_states_current->at(tid) = merge_state;
+        builders_current->at(tid) = merge_builder;
+        largest_map_count->at(tid) = current_map_count;
       };
 
       // Tree merge
@@ -852,11 +858,17 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][group
         builder_vec_t builders_last = builders;
         builder_vec_t builders_current = builders_empty;
 
+        std::vector<size_t> thread_max_values;
+        thread_max_values.resize(stages);
         std::vector<std::thread> merge_pool;
+
         while (stages > 0) {
+          builders_current.resize(stages);
+          merge_states_current.resize(stages);
+          size_t tid = 0;
           for (size_t i = 0; i < merge_states_last.size(); i += 2) {
             merge_pool.emplace_back(do_parallel_merge, builders_last[i], builders_last[i + 1], &merge_states_current,
-                                    &builders_current, &final_map_count);
+                                    &builders_current, &thread_max_values, tid++);
           }
           for (auto &t : merge_pool) {
             t.join();
@@ -874,6 +886,8 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][group
           builders_current.swap(builders_last);
           merge_states_current.swap(merge_states_last);
 
+          final_map_count =
+            std::max(final_map_count, *std::max_element(thread_max_values.begin(), thread_max_values.begin() + stages));
           // Advance stage counter
           stages /= 2;
         }
