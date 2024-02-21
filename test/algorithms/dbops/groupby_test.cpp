@@ -15,8 +15,9 @@
 #include "algorithms/utils/hashing.hpp"
 #include "datastructures/column.hpp"
 
-#define DATA_ELEMENT_COUNT (1 << 20)
-#define GLOBAL_GROUP_COUNT (1 << 15)
+#define ELEMENT_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define DATA_ELEMENT_COUNT (1 << 26)
+#define GLOBAL_GROUP_COUNT ELEMENT_MIN((DATA_ELEMENT_COUNT / 2), 128)
 #define HASH_BUCKET_COUNT (2 * GLOBAL_GROUP_COUNT)
 #define MAX_PARALLELISM_DEGREE 32
 #define BENCHMARK_ITERATIONS 3
@@ -114,6 +115,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][stl-seq]") 
   for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
     const auto t_start = std::chrono::high_resolution_clock::now();
     std::unordered_map<base_t, base_t> hash_mapuh;
+    hash_mapuh.reserve(HASH_BUCKET_COUNT);
     base_t *gext_arr = reinterpret_cast<base_t *>(malloc(HASH_BUCKET_COUNT * sizeof(base_t)));
     {
       // Create Groupings with gid and gext pair
