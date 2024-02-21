@@ -114,7 +114,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][stl-seq]") 
   for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
     const auto t_start = std::chrono::high_resolution_clock::now();
     std::unordered_map<base_t, base_t> hash_mapuh;
-    std::unordered_map<base_t, base_t> gid_mapuh;
+    base_t *gext_arr = reinterpret_cast<base_t *>(malloc(HASH_BUCKET_COUNT * sizeof(base_t)));
     {
       // Create Groupings with gid and gext pair
       auto it = column_to_group.cbegin();
@@ -123,7 +123,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][stl-seq]") 
         if (!hash_mapuh.contains(*it)) {
           const size_t curr_pos = it - column_to_group.cbegin();
           hash_mapuh[*it] = global_group_id;
-          gid_mapuh[global_group_id++] = curr_pos;
+          gext_arr[global_group_id++] = curr_pos;
         }
       }
     }
@@ -144,7 +144,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][stl-seq]") 
       auto gid_it = gids.cbegin();
       for (size_t i = 0; i < DATA_ELEMENT_COUNT; ++i) {
         const auto gid = gid_it[i];
-        const auto gext = gid_mapuh[gid];
+        const auto gext = gext_arr[gid];
         allFound &= (data_col_it[gext] == data_col_it[i]);
         if (!allFound) {
           std::cerr << "Mismatch at index " << i << " with orig " << data_col_it[i] << " and recreated "
@@ -160,6 +160,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][stl-seq]") 
         tuddbs::bench_timings[1] = bench_us;
       }
     }
+    free(gext_arr);
   }
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
