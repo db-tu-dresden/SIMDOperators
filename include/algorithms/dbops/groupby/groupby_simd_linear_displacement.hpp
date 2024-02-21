@@ -32,6 +32,7 @@
 #include "algorithms/dbops/groupby/groupby_hints.hpp"
 #include "algorithms/utils/hashing.hpp"
 #include "iterable.hpp"
+#include "static/utils/type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {
@@ -51,16 +52,16 @@ namespace tuddbs {
    * @tparam Idof The type used for indexing into the hash table. This should be a type that supports indexing
    * operations.
    */
-  template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::hashing::size_exp_2>,
-            typename Idof = tsl::workaround>
-  class Grouping_Hash_Build_SIMD_Linear_Displacement {
+  template <tsl::VectorProcessingStyle _SimdStyle, tsl::TSLArithmetic _PositionType = size_t,
+            class HintSet = OperatorHintSet<hints::hashing::size_exp_2>, typename Idof = tsl::workaround>
+  class Grouper_Build_Hash_SIMD_Linear_Displacement {
    public:
     using SimdStyle = _SimdStyle;
     using KeyType = typename SimdStyle::base_type;
     using KeySinkType = KeyType *;
     using GroupIdType = typename SimdStyle::base_type;
     using GroupIdSinkType = GroupIdType *;
-    using PositionType = size_t;
+    using PositionType = _PositionType;
     using PositionSinkType = PositionType *;
 
    private:
@@ -82,9 +83,9 @@ namespace tuddbs {
     auto invalid_gid() const noexcept { return m_invalid_gid; }
 
    public:
-    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(void) = delete;
+    explicit Grouper_Build_Hash_SIMD_Linear_Displacement(void) = delete;
     /**
-     * @brief Constructs a Grouping_Hash_Build_SIMD_Linear_Displacement object.
+     * @brief Constructs a Grouper_Build_Hash_SIMD_Linear_Displacement object.
      *
      * @param p_key_sink Pointer to the memory location where the keys will be stored.
      * @param p_group_id_sink Pointer to the memory location where the group IDs will be stored.
@@ -92,7 +93,7 @@ namespace tuddbs {
      * @param p_map_element_count The number of elements in the hash table.
      * @param initialize Flag indicating whether to initialize the hash table with empty values.
      */
-    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(
+    explicit Grouper_Build_Hash_SIMD_Linear_Displacement(
       SimdOpsIterable auto p_key_sink, SimdOpsIterable auto p_group_id_sink,
       SimdOpsIterable auto p_original_first_occurence_position_sink, size_t p_map_element_count,
       KeyType p_empty_bucket_value = 0, PositionType p_invalid_position = std::numeric_limits<PositionType>::max(),
@@ -116,12 +117,13 @@ namespace tuddbs {
         }
       }
     }
-    template <tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof, typename HS = HintSet,
-              enable_if_has_hint_t<HS, hints::hashing::is_hull_for_merging>>
-    explicit Grouping_Hash_Build_SIMD_Linear_Displacement(
+    template <tsl::VectorProcessingStyle OtherSimdStlye, typename OtherPositionType, class OtherHintSet,
+              typename OtherIdof, typename HS = HintSet, enable_if_has_hint_t<HS, hints::hashing::is_hull_for_merging>>
+    explicit Grouper_Build_Hash_SIMD_Linear_Displacement(
       SimdOpsIterable auto p_key_sink, SimdOpsIterable auto p_group_id_sink,
       SimdOpsIterable auto p_original_first_occurence_position_sink, size_t p_map_element_count,
-      Grouping_Hash_Build_SIMD_Linear_Displacement<OtherSimdStlye, OtherHintSet, OtherIdof> const &other)
+      Grouper_Build_Hash_SIMD_Linear_Displacement<OtherSimdStlye, OtherPositionType, OtherHintSet, OtherIdof> const
+        &other)
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_original_first_occurence_position_sink)),
@@ -142,9 +144,9 @@ namespace tuddbs {
     }
 
     /**
-     * @brief Destructor for the Grouping_Hash_Build_SIMD_Linear_Displacement object.
+     * @brief Destructor for the Grouper_Build_Hash_SIMD_Linear_Displacement object.
      */
-    ~Grouping_Hash_Build_SIMD_Linear_Displacement() = default;
+    ~Grouper_Build_Hash_SIMD_Linear_Displacement() = default;
 
    private:
     /**
@@ -381,16 +383,16 @@ namespace tuddbs {
      * @param other The other hash table to merge.
      */
     template <bool NeedsPosition = has_hint<HintSet, hints::grouping::global_first_occurence_required>,
-              tsl::VectorProcessingStyle OtherSimdStlye, class OtherHintSet, typename OtherIdof>
-    auto merge(
-      Grouping_Hash_Build_SIMD_Linear_Displacement<OtherSimdStlye, OtherHintSet, OtherIdof> const &other) noexcept
-      -> void {
+              tsl::VectorProcessingStyle OtherSimdStlye, tsl::TSLArithmetic OtherPositionType, class OtherHintSet,
+              typename OtherIdof>
+    auto merge(Grouper_Build_Hash_SIMD_Linear_Displacement<OtherSimdStlye, OtherPositionType, OtherHintSet,
+                                                           OtherIdof> const &other) noexcept -> void {
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
       auto const other_invalid_gid = other.invalid_gid();
-      auto const other_gid_sink = other.m_group_id_sink;
-      auto const other_key_sink = other.m_key_sink;
-      auto const other_position_sink = other.m_original_positions_sink;
+      auto const &other_gid_sink = other.m_group_id_sink;
+      auto const &other_key_sink = other.m_key_sink;
+      auto const &other_position_sink = other.m_original_positions_sink;
       for (auto i = 0; i < other.m_map_element_count; ++i) {
         auto const gid = other_gid_sink[i];
         if (gid != other_invalid_gid) {
@@ -413,16 +415,16 @@ namespace tuddbs {
     auto finalize() const noexcept -> void {}
   };
 
-  template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::hashing::size_exp_2>,
-            typename Idof = tsl::workaround>
-  class Grouper_SIMD_Linear_Displacement {
+  template <tsl::VectorProcessingStyle _SimdStyle, tsl::TSLArithmetic _PositionType = size_t,
+            class HintSet = OperatorHintSet<hints::hashing::size_exp_2>, typename Idof = tsl::workaround>
+  class Grouper_Hash_SIMD_Linear_Displacement {
    public:
     using SimdStyle = _SimdStyle;
     using KeyType = typename SimdStyle::base_type;
     using KeySinkType = KeyType *;
     using GroupIdType = typename SimdStyle::base_type;
     using GroupIdSinkType = GroupIdType *;
-    using PositionType = size_t;
+    using PositionType = _PositionType;
     using PositionSinkType = PositionType *;
 
    private:
@@ -431,8 +433,9 @@ namespace tuddbs {
     size_t const m_map_element_count;
 
    public:
-    explicit Grouper_SIMD_Linear_Displacement(KeySinkType p_key_sink, GroupIdSinkType p_group_id_sink,
-                                              PositionSinkType p_original_positions_sink, size_t p_map_element_count)
+    explicit Grouper_Hash_SIMD_Linear_Displacement(KeySinkType p_key_sink, GroupIdSinkType p_group_id_sink,
+                                                   PositionSinkType p_original_positions_sink,
+                                                   size_t p_map_element_count)
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
         m_group_id_sink(reinterpret_iterable<GroupIdSinkType>(p_group_id_sink)),
         m_map_element_count(p_map_element_count) {
@@ -440,7 +443,7 @@ namespace tuddbs {
         assert((m_map_element_count & (m_map_element_count - 1)) == 0);
       }
     }
-    ~Grouper_SIMD_Linear_Displacement() = default;
+    ~Grouper_Hash_SIMD_Linear_Displacement() = default;
 
    private:
     TSL_FORCE_INLINE auto lookup(typename SimdStyle::base_type const key,
@@ -541,9 +544,16 @@ namespace tuddbs {
       }
     }
 
-    auto merge(Grouper_SIMD_Linear_Displacement const &other) const noexcept -> void {}
+    auto merge(Grouper_Hash_SIMD_Linear_Displacement const &other) const noexcept -> void {}
 
     auto finalize() const noexcept -> void {}
+  };
+
+  template <tsl::VectorProcessingStyle _SimdStyle, tsl::TSLArithmetic _PositionType,
+            class HintSet = OperatorHintSet<hints::hashing::size_exp_2>, typename Idof = tsl::workaround>
+  struct Grouper_SIMD_Linear_Displacement {
+    using builder_t = Grouper_Build_Hash_SIMD_Linear_Displacement<_SimdStyle, _PositionType, HintSet, Idof>;
+    using grouper_t = Grouper_Hash_SIMD_Linear_Displacement<_SimdStyle, _PositionType, HintSet, Idof>;
   };
 }  // namespace tuddbs
 #endif

@@ -43,8 +43,11 @@ namespace tuddbs {
   template <typename HS, typename... Args>
   inline constexpr bool has_any_hint = (has_hint<HS, Args> || ...);
 
-  template <typename HS, typename Arg>
-  using enable_if_has_hint_t = typename std::enable_if_t<has_hint<HS, Arg>, Arg>;
+  template <typename HS, typename Arg, typename T = Arg>
+  using enable_if_has_hint_t = typename std::enable_if_t<has_hint<HS, Arg>, T>;
+
+  template <typename HS, typename Arg, typename T = Arg>
+  using disable_if_has_hint_t = typename std::enable_if_t<!has_hint<HS, Arg>, T>;
 
   template <typename HS, typename... Args>
   using enable_if_has_hints_t = typename std::enable_if_t<has_hints<HS, Args...>, std::tuple<Args...>>;

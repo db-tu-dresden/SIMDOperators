@@ -10,3 +10,10 @@ create_test(
   INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
   LIBRARIES pthread
 )
+
+create_test(
+  TARGET_NAME groupby_sum_test
+  SRC_FILES algorithms/dbops/groupsum_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)

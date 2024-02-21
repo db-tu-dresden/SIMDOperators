@@ -17,7 +17,7 @@
  */
 // ------------------------------------------------------------------- //
 /**
- * @file simdops.hpp
+ * @file dbops_hints.hpp
  * @brief
  */
 #ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_HINTS_HPP
@@ -28,6 +28,7 @@ namespace tuddbs {
   namespace hints {
     namespace operators {
       struct preserve_original_positions {};
+      struct collect_metrics {};
     }  // namespace operators
     namespace intermediate {
       /**

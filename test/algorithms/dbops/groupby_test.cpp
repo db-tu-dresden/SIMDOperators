@@ -9,6 +9,7 @@
 #include <random>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "algorithms/dbops/dbops_hints.hpp"
@@ -174,7 +175,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse-seq]") 
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::sse>,
+    Group<tsl::simd<uint64_t, tsl::sse>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
@@ -229,7 +230,7 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx2-seq]")
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::avx2>,
+    Group<tsl::simd<uint64_t, tsl::avx2>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
@@ -285,7 +286,7 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::sse>,
+    Group<tsl::simd<uint64_t, tsl::sse>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
@@ -382,7 +383,7 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx2]") {
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::avx2>,
+    Group<tsl::simd<uint64_t, tsl::avx2>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
   using group_state_t = group_column_set_t<base_t>;
@@ -478,7 +479,7 @@ TEST_CASE("GroupBy for uint64_t with sse / Merge Tree - Sequential", "[cpu][grou
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::sse>,
+    Group<tsl::simd<uint64_t, tsl::sse>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::grouping::global_first_occurence_required, hints::hashing::keys_may_contain_zero>>;
   using group_state_t = group_column_set_t<base_t>;
@@ -625,7 +626,7 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Sequential", "[cpu][gro
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::avx2>,
+    Group<tsl::simd<uint64_t, tsl::avx2>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::grouping::global_first_occurence_required, hints::hashing::keys_may_contain_zero>>;
   using group_state_t = group_column_set_t<base_t>;
@@ -773,7 +774,7 @@ TEST_CASE("GroupBy for uint64_t with sse / Merge Tree - Parallel", "[cpu][groupb
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::sse>,
+    Group<tsl::simd<uint64_t, tsl::sse>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::grouping::global_first_occurence_required, hints::hashing::keys_may_contain_zero>>;
   using group_state_t = group_column_set_t<base_t>;
@@ -937,7 +938,7 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][group
   using base_t = uint64_t;
   using namespace tuddbs;
   using group_t =
-    Group<tsl::simd<uint64_t, tsl::sse>,
+    Group<tsl::simd<uint64_t, tsl::sse>, size_t,
           OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
                           hints::grouping::global_first_occurence_required, hints::hashing::keys_may_contain_zero>>;
   using group_state_t = group_column_set_t<base_t>;
