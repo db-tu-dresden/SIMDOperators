@@ -341,6 +341,7 @@ namespace tuddbs {
     typename SimdStyle::base_type const m_lower_predicate_scalar;
     typename SimdStyle::base_type const m_upper_predicate_scalar;
     typename SimdStyle::register_type const m_lower_predicate_reg;
+    typename SimdStyle::register_type const m_upper_predicate_reg;
 
    public:
     Generic_Range_Scan(typename SimdStyle::base_type const p_lower_predicate,
