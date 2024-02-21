@@ -15,7 +15,7 @@
 #include "algorithms/utils/hashing.hpp"
 #include "datastructures/column.hpp"
 
-#define DATA_ELEMENT_COUNT (1 << 22)
+#define DATA_ELEMENT_COUNT (1 << 20)
 #define GLOBAL_GROUP_COUNT (1 << 15)
 #define HASH_BUCKET_COUNT (2 * GLOBAL_GROUP_COUNT)
 #define MAX_PARALLELISM_DEGREE 32
@@ -91,6 +91,190 @@ namespace tuddbs {
     std::cout << ss.str() << std::endl;
   }
 }  // namespace tuddbs
+
+TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][stl-seq]") {
+  std::cout << "[stl-seq] uint64_t sequential" << std::endl;
+  using base_t = uint64_t;
+
+  auto group_allocator = [](size_t i) -> base_t * {
+    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
+  };
+  auto group_deleter = [](base_t *ptr) { _mm_free(ptr); };
+
+  tuddbs::InMemoryColumn<base_t> column_to_group(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+  size_t seed = tuddbs::get_bench_seed();
+  std::mt19937 mt(seed);
+  // std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, GLOBAL_GROUP_COUNT);
+
+  for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
+    (*it) = dist(mt);
+  }
+
+  for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
+    const auto t_start = std::chrono::high_resolution_clock::now();
+    std::unordered_map<base_t, base_t> hash_mapuh;
+    std::unordered_map<base_t, base_t> gid_mapuh;
+    {
+      // Create Groupings with gid and gext pair
+      auto it = column_to_group.cbegin();
+      base_t global_group_id = 0;
+      for (; it != column_to_group.cend(); ++it) {
+        if (!hash_mapuh.contains(*it)) {
+          const size_t curr_pos = it - column_to_group.cbegin();
+          hash_mapuh[*it] = global_group_id;
+          gid_mapuh[global_group_id++] = curr_pos;
+        }
+      }
+    }
+
+    tuddbs::InMemoryColumn<base_t> gids(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+    {
+      auto data_it = column_to_group.cbegin();
+      auto gid_it = gids.begin();
+      for (; data_it != column_to_group.cend(); ++data_it, ++gid_it) {
+        const auto gid = hash_mapuh[*data_it];
+        *gid_it = gid;
+      }
+    }
+
+    bool allFound = true;
+    {
+      auto data_col_it = column_to_group.cbegin();
+      auto gid_it = gids.cbegin();
+      for (size_t i = 0; i < DATA_ELEMENT_COUNT; ++i) {
+        const auto gid = gid_it[i];
+        const auto gext = gid_mapuh[gid];
+        allFound &= (data_col_it[gext] == data_col_it[i]);
+        if (!allFound) {
+          std::cerr << "Mismatch at index " << i << " with orig " << data_col_it[i] << " and recreated "
+                    << data_col_it[gext] << " (GID: " << gid << ", GEXT: " << gext << ")" << std::endl;
+        }
+      }
+      REQUIRE(allFound);
+      const auto t_end = std::chrono::high_resolution_clock::now();
+      const auto bench_us = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
+      if (tuddbs::bench_timings.contains(1)) {
+        tuddbs::bench_timings[1] += bench_us;
+      } else {
+        tuddbs::bench_timings[1] = bench_us;
+      }
+    }
+  }
+  tuddbs::print_timings(BENCHMARK_ITERATIONS);
+  tuddbs::bench_timings.clear();
+}
+
+// #### Sequential execution
+TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse-seq]") {
+  std::cout << "[sse] uint64_t sequential execution" << std::endl;
+  using base_t = uint64_t;
+  using namespace tuddbs;
+  using group_t =
+    Group<tsl::simd<uint64_t, tsl::sse>,
+          OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
+                          hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
+  using group_state_t = group_column_set_t<base_t>;
+
+  auto group_allocator = [](size_t i) -> base_t * {
+    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
+  };
+  auto group_deleter = [](base_t *ptr) { _mm_free(ptr); };
+
+  InMemoryColumn<base_t> column_to_group(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+  size_t seed = tuddbs::get_bench_seed();
+  std::mt19937 mt(seed);
+  // std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, GLOBAL_GROUP_COUNT);
+
+  for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
+    (*it) = dist(mt);
+  }
+
+  // We currently require element_count to be divisible by parallelism_degree. Best case its a power of 2.
+  for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
+    const auto t_start = std::chrono::high_resolution_clock::now();
+
+    group_state_t group_columns(HASH_BUCKET_COUNT, group_allocator, group_deleter);
+    group_t::builder_t builder(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
+
+    builder(column_to_group.cbegin(), column_to_group.cend());
+
+    group_t::grouper_t grouper(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
+
+    group_columns.allocate_gid_column(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+    grouper(group_columns.gids.begin(), column_to_group.cbegin(), column_to_group.cend());
+
+    REQUIRE_THAT(group_columns, GroupByRecreate(column_to_group));
+
+    const auto t_end = std::chrono::high_resolution_clock::now();
+    const auto bench_us = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
+    if (tuddbs::bench_timings.contains(1)) {
+      tuddbs::bench_timings[1] += bench_us;
+    } else {
+      tuddbs::bench_timings[1] = bench_us;
+    }
+  }
+  tuddbs::print_timings(BENCHMARK_ITERATIONS);
+  tuddbs::bench_timings.clear();
+}
+
+TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx2-seq]") {
+  std::cout << "[avx2] uint64_t sequential execution" << std::endl;
+  using base_t = uint64_t;
+  using namespace tuddbs;
+  using group_t =
+    Group<tsl::simd<uint64_t, tsl::avx2>,
+          OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
+                          hints::hashing::keys_may_contain_zero, hints::grouping::global_first_occurence_required>>;
+  using group_state_t = group_column_set_t<base_t>;
+
+  auto group_allocator = [](size_t i) -> base_t * {
+    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
+  };
+  auto group_deleter = [](base_t *ptr) { _mm_free(ptr); };
+
+  InMemoryColumn<base_t> column_to_group(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+  size_t seed = tuddbs::get_bench_seed();
+  std::mt19937 mt(seed);
+  // std::cerr << "Seed: " << seed << std::endl;
+  std::uniform_int_distribution<> dist(0, GLOBAL_GROUP_COUNT);
+
+  for (auto it = column_to_group.begin(); it != column_to_group.end(); ++it) {
+    (*it) = dist(mt);
+  }
+
+  // We currently require element_count to be divisible by parallelism_degree. Best case its a power of 2.
+  for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
+    const auto t_start = std::chrono::high_resolution_clock::now();
+
+    group_state_t group_columns(HASH_BUCKET_COUNT, group_allocator, group_deleter);
+    group_t::builder_t builder(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
+
+    builder(column_to_group.cbegin(), column_to_group.cend());
+
+    group_t::grouper_t grouper(group_columns.map_key_sink.begin(), group_columns.map_gid_sink.begin(),
+                               group_columns.gext_sink.begin(), HASH_BUCKET_COUNT);
+
+    group_columns.allocate_gid_column(DATA_ELEMENT_COUNT, group_allocator, group_deleter);
+    grouper(group_columns.gids.begin(), column_to_group.cbegin(), column_to_group.cend());
+
+    REQUIRE_THAT(group_columns, GroupByRecreate(column_to_group));
+
+    const auto t_end = std::chrono::high_resolution_clock::now();
+    const auto bench_us = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
+    if (tuddbs::bench_timings.contains(1)) {
+      tuddbs::bench_timings[1] += bench_us;
+    } else {
+      tuddbs::bench_timings[1] = bench_us;
+    }
+  }
+  tuddbs::print_timings(BENCHMARK_ITERATIONS);
+  tuddbs::bench_timings.clear();
+}
 
 // #### Sequential Merge
 TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
