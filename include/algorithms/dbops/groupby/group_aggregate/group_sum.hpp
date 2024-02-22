@@ -29,6 +29,7 @@
 
 #include "algorithms/dbops/dbops_hints.hpp"
 #include "algorithms/utils/hashing.hpp"
+#include "algorithms/utils/hinting.hpp"
 #include "iterable.hpp"
 #include "tslintrin.hpp"
 
@@ -183,8 +184,13 @@ namespace tuddbs {
       }
     }
 
-    auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    SimdOpsIterable auto p_value) noexcept -> void {
+    template <class HS = HintSet>
+    auto operator()(
+      SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
+      SimdOpsIterable auto p_value,
+      enable_if_has_hints_mutual_excluding_t<
+        HS, std::tuple<hints::intermediate::dense_bit_mask>,
+        std::tuple<hints::intermediate::dense_bit_mask, hints::intermediate::position_list>> = {}) noexcept -> void {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<KeySimdStyle>(p_data, p_end);
       // Get the end of the data
@@ -214,9 +220,13 @@ namespace tuddbs {
       }
     }
 
-    template <class HS = HintSet, enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>>
+    template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    SimdOpsIterable auto p_value) noexcept -> void {
+                    SimdOpsIterable auto p_value,
+                    enable_if_has_hints_mutual_excluding_t<
+                      HS, std::tuple<hints::intermediate::dense_bit_mask>,
+                      std::tuple<hints::intermediate::bit_mask, hints::intermediate::position_list>> = {}) noexcept
+      -> void {
       constexpr auto const bits_per_mask = sizeof(typename KeySimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -311,36 +321,40 @@ namespace tuddbs {
     ~Grouper_Aggregate_Sum_Hash_SIMD_Linear_Displacement() = default;
 
    public:
-    auto operator()(SimdOpsIterable auto p_group_key, SimdOpsIterable auto p_group_value) noexcept -> void {
+    template <class HS = HintSet>
+    auto operator()(SimdOpsIterable auto p_group_key, SimdOpsIterable auto p_group_value,
+                    enable_if_has_hint_t<HS, hints::hashing::keys_may_contain_zero> = {}) noexcept -> void {
       for (size_t i = 0; i < m_map_element_count; ++i) {
-        if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
-          if (m_key_sink[i] != m_empty_bucket_value) {
-            *p_group_key = m_key_sink[i];
-            *p_group_value = m_value_sink[i];
-            ++p_group_key;
-            ++p_group_value;
-          } else {
-            if (m_value_sink[i] != 0) {
-              *p_group_key = m_key_sink[i];
-              *p_group_value = m_value_sink[i];
-              ++p_group_key;
-              ++p_group_value;
-              m_empty_bucket_seen_in_keys = true;
-            }
-          }
+        if (m_key_sink[i] != m_empty_bucket_value) {
+          *p_group_key = m_key_sink[i];
+          *p_group_value = m_value_sink[i];
+          ++p_group_key;
+          ++p_group_value;
         } else {
-          if (m_key_sink[i] != m_empty_bucket_value) {
+          if (m_value_sink[i] != 0) {
             *p_group_key = m_key_sink[i];
             *p_group_value = m_value_sink[i];
             ++p_group_key;
             ++p_group_value;
+            m_empty_bucket_seen_in_keys = true;
           }
         }
       }
-      if constexpr (has_hint<HintSet, hints::hashing::keys_may_contain_zero>) {
-        if (!m_empty_bucket_seen_in_keys) {
-          *p_group_key = 0;
-          *p_group_value = 0;
+      if (!m_empty_bucket_seen_in_keys) {
+        *p_group_key = 0;
+        *p_group_value = 0;
+      }
+    }
+
+    template <class HS = HintSet>
+    auto operator()(SimdOpsIterable auto p_group_key, SimdOpsIterable auto p_group_value,
+                    enable_if_has_not_hint_t<HS, hints::hashing::keys_may_contain_zero> = {}) const noexcept -> void {
+      for (size_t i = 0; i < m_map_element_count; ++i) {
+        if (m_key_sink[i] != m_empty_bucket_value) {
+          *p_group_key = m_key_sink[i];
+          *p_group_value = m_value_sink[i];
+          ++p_group_key;
+          ++p_group_value;
         }
       }
     }

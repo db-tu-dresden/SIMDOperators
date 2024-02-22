@@ -21,14 +21,13 @@
  * @brief
  */
 
-#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_HPP
-#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_HPP
+#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_SCAN_HPP
+#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_SCAN_HPP
 
 #include "algorithms/dbops/dbops_hints.hpp"
 #include "algorithms/dbops/scan/scan_hints.hpp"
 #include "algorithms/utils/hinting.hpp"
 #include "iterable.hpp"
-#include "static/simd/simd_type_concepts.hpp"
 #include "tslintrin.hpp"
 
 namespace tuddbs {

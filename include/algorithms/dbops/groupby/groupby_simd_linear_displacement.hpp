@@ -291,7 +291,7 @@ namespace tuddbs {
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
 
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++valid_masks) {
-        auto valid_mask = tsl::load_mask<SimdStyle, Idof>(valid_masks);
+        auto valid_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
           if (tsl::test_mask<SimdStyle, Idof>(valid_mask, i)) {
             auto key = p_data[i];
@@ -307,7 +307,7 @@ namespace tuddbs {
         }
       }
       if (p_data != end) {
-        auto valid_mask = tsl::load_mask<SimdStyle, Idof>(valid_masks);
+        auto valid_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         int i = 0;
         for (; p_data != end; ++p_data, ++i) {
           if (tsl::test_mask<SimdStyle, Idof>(valid_mask, i)) {
@@ -339,7 +339,7 @@ namespace tuddbs {
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
 
       for (; p_data != batched_end_end; p_data += bits_per_mask, ++valid_masks) {
-        auto valid_mask = tsl::load_mask<SimdStyle, Idof>(valid_masks);
+        auto valid_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         for (size_t i = 0; i < bits_per_mask; ++i) {
           if (tsl::test_mask<SimdStyle, Idof>(valid_mask, i)) {
             auto key = p_data[i];
@@ -355,7 +355,7 @@ namespace tuddbs {
         }
       }
       if (p_data != end) {
-        auto valid_mask = tsl::load_mask<SimdStyle, Idof>(valid_masks);
+        auto valid_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         int i = 0;
         for (; p_data != end; ++p_data, ++i) {
           if (tsl::test_mask<SimdStyle, Idof>(valid_mask, i)) {
@@ -497,7 +497,7 @@ namespace tuddbs {
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
 
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++valid_masks) {
-        auto valid_mask = tsl::load_mask<SimdStyle, Idof>(valid_masks);
+        auto valid_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i, ++p_output_gids) {
           if (tsl::test_mask<SimdStyle, Idof>(valid_mask, i)) {
             auto key = *p_data;
@@ -524,7 +524,7 @@ namespace tuddbs {
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
 
       for (; p_data != batched_end_end; p_data += bits_per_mask, ++valid_masks) {
-        auto valid_mask = tsl::load_mask<SimdStyle, Idof>(valid_masks);
+        auto valid_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         for (size_t i = 0; i < bits_per_mask; ++i, ++p_output_gids) {
           if (tsl::test_mask<SimdStyle, Idof>(valid_mask, i)) {
             auto key = p_data[i];
@@ -533,7 +533,7 @@ namespace tuddbs {
         }
       }
       if (p_data != end) {
-        auto valid_mask = tsl::load_mask<SimdStyle, Idof>(valid_masks);
+        auto valid_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         int i = 0;
         for (; p_data != end; ++p_data, ++i, ++p_output_gids) {
           if (tsl::test_mask<SimdStyle, Idof>(valid_mask, i)) {

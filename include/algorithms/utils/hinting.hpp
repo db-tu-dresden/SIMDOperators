@@ -47,10 +47,26 @@ namespace tuddbs {
   using enable_if_has_hint_t = typename std::enable_if_t<has_hint<HS, Arg>, T>;
 
   template <typename HS, typename Arg, typename T = Arg>
-  using disable_if_has_hint_t = typename std::enable_if_t<!has_hint<HS, Arg>, T>;
+  using enable_if_has_not_hint_t = typename std::enable_if_t<!has_hint<HS, Arg>, T>;
 
   template <typename HS, typename... Args>
   using enable_if_has_hints_t = typename std::enable_if_t<has_hints<HS, Args...>, std::tuple<Args...>>;
+
+  template <typename HS, typename HasHintsTuple, typename HasNotHintsTuple>
+  struct hint_mutex;
+
+  template <typename HS, typename... HasHints, typename... HasNotHints>
+  struct hint_mutex<HS, std::tuple<HasHints...>, std::tuple<HasNotHints...>> {
+    using mutex_type = std::integral_constant<bool, (has_hints<HS, HasHints...>)&&(!has_hint<HS, HasNotHints> && ...)>;
+  };
+
+  template <typename HS, typename HasHintsTuple, typename HasNotHintsTuple>
+  inline constexpr bool has_hints_mutual_excluding = hint_mutex<HS, HasHintsTuple, HasNotHintsTuple>::mutex_type::value;
+
+  template <typename HS, typename HasHintsTuple, typename HasNotHintsTuple>
+  using enable_if_has_hints_mutual_excluding_t =
+    typename std::enable_if_t<has_hints_mutual_excluding<HS, HasHintsTuple, HasNotHintsTuple>,
+                              std::tuple<HasHintsTuple, HasNotHintsTuple>>;
 
 }  // namespace tuddbs
 #endif
