@@ -171,8 +171,8 @@ namespace tuddbs {
         normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
           default_hasher<SimdStyle, Idof>::hash_value(key), m_map_element_count));
 
+      typename SimdStyle::register_type map_reg;
       while (true) {
-        typename SimdStyle::register_type map_reg;
         if constexpr (has_hint<HintSet, hints::memory::aligned>) {
           // load N values from the map
           map_reg = tsl::load<SimdStyle, Idof>(m_key_sink + lookup_position);
@@ -281,8 +281,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    PositionType start_position = 0, intermediate_hint_t<HS>::enable_for_bitmask = {}) noexcept
-      -> void {
+                    PositionType start_position = 0, activate_for_bit_mask<HS> = {}) noexcept -> void {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
       // Get the end of the data
@@ -329,8 +328,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    PositionType start_position = 0, intermediate_hint_t<HS>::enable_for_dense_bitmask = {}) noexcept
-      -> void {
+                    PositionType start_position = 0, activate_for_dense_bit_mask<HS> = {}) noexcept -> void {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -490,8 +488,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_output_gids, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    SimdOpsIterable auto p_valid_masks, intermediate_hint_t<HS>::enable_for_bitmask = {}) const noexcept
-      -> void {
+                    SimdOpsIterable auto p_valid_masks, activate_for_bit_mask<HS> = {}) const noexcept -> void {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
       // Get the end of the data
@@ -518,8 +515,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_output_gids, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    SimdOpsIterable auto p_valid_masks,
-                    intermediate_hint_t<HS>::enable_for_dense_bitmask = {}) const noexcept -> void {
+                    SimdOpsIterable auto p_valid_masks, activate_for_dense_bit_mask<HS> = {}) const noexcept -> void {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -550,7 +546,10 @@ namespace tuddbs {
       }
     }
 
-    auto merge(Grouper_Hash_SIMD_Linear_Displacement const &other) const noexcept -> void {}
+    template <tsl::VectorProcessingStyle OtherSimdStlye, tsl::TSLArithmetic OtherPositionType, class OtherHintSet,
+              typename OtherIdof>
+    auto merge(Grouper_Hash_SIMD_Linear_Displacement<OtherSimdStlye, OtherPositionType, OtherHintSet, OtherIdof> const
+                 &other) const noexcept -> void {}
 
     auto finalize() const noexcept -> void {}
   };

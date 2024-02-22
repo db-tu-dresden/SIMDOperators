@@ -47,16 +47,23 @@ namespace tuddbs {
   }    // namespace hints
 
   template <typename HS>
-  struct intermediate_hint_t {
+  struct intermediate_hint_helper_t {
     static_assert(count_hints<HS, hints::intermediate::dense_bit_mask, hints::intermediate::bit_mask,
                               hints::intermediate::position_list> <= 1,
                   "Intermediate type can be only one of the supported types");
     constexpr static bool use_dense_bitmask = has_hint<HS, hints::intermediate::dense_bit_mask>;
     constexpr static bool use_bitmask = has_hint<HS, hints::intermediate::bit_mask>;
     constexpr static bool use_position_list = has_hint<HS, hints::intermediate::position_list>;
-    using enable_for_dense_bitmask = enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>;
-    using enable_for_bitmask = enable_if_has_hint_t<HS, hints::intermediate::bit_mask>;
-    using enable_for_position_list = enable_if_has_hint_t<HS, hints::intermediate::position_list>;
   };
+
+  template <typename HS, typename HintHelper = intermediate_hint_helper_t<HS>>
+  using activate_for_dense_bit_mask =
+    typename std::enable_if_t<HintHelper::use_dense_bitmask, hints::intermediate::dense_bit_mask>;
+  template <typename HS, typename HintHelper = intermediate_hint_helper_t<HS>>
+  using activate_for_bit_mask = typename std::enable_if_t<HintHelper::use_bitmask, hints::intermediate::bit_mask>;
+  template <typename HS, typename HintHelper = intermediate_hint_helper_t<HS>>
+  using activate_for_position_list =
+    typename std::enable_if_t<HintHelper::use_position_list, hints::intermediate::position_list>;
+
 }  // namespace tuddbs
 #endif

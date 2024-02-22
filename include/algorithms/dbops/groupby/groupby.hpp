@@ -24,7 +24,7 @@
 #define SIMDOPS_INCLUE_ALGORITHMS_DBOPS_GROUPBY_GROUPBY_HPP
 
 #include "algorithms/dbops/dbops_hints.hpp"
-#include "algorithms/dbops/groupby/group_aggregate/group_sum.hpp"
+#include "algorithms/dbops/group_aggregate/group_sum.hpp"
 #include "algorithms/dbops/groupby/groupby_hints.hpp"
 #include "algorithms/dbops/groupby/groupby_simd_linear_displacement.hpp"
 #include "algorithms/utils/hashing.hpp"

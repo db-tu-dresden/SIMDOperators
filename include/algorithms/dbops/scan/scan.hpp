@@ -24,6 +24,11 @@
 #ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_SCAN_HPP
 #define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SCAN_SCAN_HPP
 
+#include <climits>
+#include <cstddef>
+#include <tuple>
+#include <type_traits>
+
 #include "algorithms/dbops/dbops_hints.hpp"
 #include "algorithms/dbops/scan/scan_hints.hpp"
 #include "algorithms/utils/hinting.hpp"
@@ -76,10 +81,16 @@ namespace tuddbs {
       auto const m_increment = tsl::set1<UnsignedSimdT>(1);
 
       auto valid_count = tsl::set1<CountSimdT, Idof>(0);
+
+      typename SimdStyle::register_type data;
       // Iterate over the data simdified and apply the Scan for equality
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++result) {
         // Load data from the source
-        auto data = tsl::load<SimdStyle, Idof>(p_data);
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          data = tsl::load<SimdStyle, Idof>(p_data);
+        } else {
+          data = tsl::loadu<SimdStyle, Idof>(p_data);
+        }
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = CompareFun<SimdStyle, Idof>::apply(data, m_predicate_reg);
@@ -125,9 +136,9 @@ namespace tuddbs {
       SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
       enable_if_has_hints_t<HS, hints::operators::scan::count_bits, hints::intermediate::dense_bit_mask> = {}) noexcept
       -> std::tuple<DataSinkType, size_t> {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
-      auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
+      auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
 
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
@@ -138,13 +149,19 @@ namespace tuddbs {
       auto const m_increment = tsl::set1<UnsignedSimdT>(1);
 
       auto valid_count = tsl::set1<CountSimdT, Idof>(0);
+      typename SimdStyle::register_type data;
+
       // Iterate over the data simdified and apply the Scan for equality
-      for (; p_data != batched_end_end; p_data += bits_per_mask, ++result) {
+      for (; p_data != batched_end; ++result) {
         auto mask = tsl::integral_all_false<SimdStyle, Idof>();
         for (size_t i = 0; i < bits_per_mask;
              i += SimdStyle::vector_element_count(), p_data += SimdStyle::vector_element_count()) {
           // Load data from the source
-          auto data = tsl::load<SimdStyle, Idof>(p_data);
+          if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+            data = tsl::load<SimdStyle, Idof>(p_data);
+          } else {
+            data = tsl::loadu<SimdStyle, Idof>(p_data);
+          }
           auto part_mask = CompareFun<SimdStyle, Idof>::apply(data, m_predicate_reg);
           // Increment the valid count
           auto count_increment =
@@ -198,10 +215,16 @@ namespace tuddbs {
 
       // Get the result pointer
       auto result = reinterpret_iterable<DataSinkType>(p_result);
+
+      typename SimdStyle::register_type data;
       // Iterate over the data simdified and apply the Scan for equality
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++result) {
         // Load data from the source
-        auto data = tsl::load<SimdStyle, Idof>(p_data);
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          data = tsl::load<SimdStyle, Idof>(p_data);
+        } else {
+          data = tsl::loadu<SimdStyle, Idof>(p_data);
+        }
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = CompareFun<SimdStyle, Idof>::apply(data, m_predicate_reg);
@@ -233,9 +256,9 @@ namespace tuddbs {
       enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::dense_bit_mask>,
                                              std::tuple<hints::operators::scan::count_bits>> = {}) noexcept
       -> DataSinkType {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
-      auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
+      auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
 
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
@@ -243,13 +266,18 @@ namespace tuddbs {
       // Get the result pointer
       auto result = reinterpret_iterable<DataSinkType>(p_result);
 
+      typename SimdStyle::register_type data;
       // Iterate over the data simdified and apply the Scan for equality
-      for (; p_data != batched_end_end; p_data += bits_per_mask, ++result) {
+      for (; p_data != batched_end; ++result) {
         auto mask = tsl::integral_all_false<SimdStyle, Idof>();
         for (size_t i = 0; i < bits_per_mask;
              i += SimdStyle::vector_element_count(), p_data += SimdStyle::vector_element_count()) {
           // Load data from the source
-          auto data = tsl::load<SimdStyle, Idof>(p_data);
+          if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+            data = tsl::load<SimdStyle, Idof>(p_data);
+          } else {
+            data = tsl::loadu<SimdStyle, Idof>(p_data);
+          }
           auto part_mask = CompareFun<SimdStyle, Idof>::apply(data, m_predicate_reg);
           mask = tsl::insert_mask<SimdStyle, Idof>(mask, tsl::to_integral<SimdStyle>(part_mask), i);
           // Store the result as an integral value into the data sink
@@ -290,10 +318,16 @@ namespace tuddbs {
       // Get the result pointer
       auto result = reinterpret_iterable<DataSinkType>(p_result);
 
+      typename SimdStyle::register_type data_reg;
+
       // Iterate over the data simdified and apply the Scan for equality
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count()) {
         // Load data from the source
-        auto data_reg = tsl::load<SimdStyle, Idof>(p_data);
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          data_reg = tsl::load<SimdStyle, Idof>(p_data);
+        } else {
+          data_reg = tsl::loadu<SimdStyle, Idof>(p_data);
+        }
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = tsl::to_integral<SimdStyle>(CompareFun<SimdStyle, Idof>::apply(data_reg, m_predicate_reg));
@@ -379,10 +413,17 @@ namespace tuddbs {
       auto const m_increment = tsl::set1<UnsignedSimdT>(1);
 
       auto valid_count = tsl::set1<CountSimdT, Idof>(0);
+
+      typename SimdStyle::register_type data;
+
       // Iterate over the data simdified and apply the Scan for equality
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++result) {
         // Load data from the source
-        auto data = tsl::load<SimdStyle, Idof>(p_data);
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          data = tsl::load<SimdStyle, Idof>(p_data);
+        } else {
+          data = tsl::loadu<SimdStyle, Idof>(p_data);
+        }
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = CompareFun<SimdStyle, Idof>::apply(data, m_lower_predicate_reg, m_upper_predicate_reg);
@@ -428,9 +469,9 @@ namespace tuddbs {
       SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
       enable_if_has_hints_t<HS, hints::operators::scan::count_bits, hints::intermediate::dense_bit_mask> = {}) noexcept
       -> std::tuple<DataSinkType, size_t> {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
-      auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
+      auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
 
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
@@ -441,13 +482,19 @@ namespace tuddbs {
       auto const m_increment = tsl::set1<UnsignedSimdT>(1);
 
       auto valid_count = tsl::set1<CountSimdT, Idof>(0);
+      typename SimdStyle::register_type data;
+
       // Iterate over the data simdified and apply the Scan for equality
-      for (; p_data != batched_end_end; p_data += bits_per_mask, ++result) {
+      for (; p_data != batched_end; ++result) {
         auto mask = tsl::integral_all_false<SimdStyle, Idof>();
         for (size_t i = 0; i < bits_per_mask;
              i += SimdStyle::vector_element_count(), p_data += SimdStyle::vector_element_count()) {
           // Load data from the source
-          auto data = tsl::load<SimdStyle, Idof>(p_data);
+          if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+            data = tsl::load<SimdStyle, Idof>(p_data);
+          } else {
+            data = tsl::loadu<SimdStyle, Idof>(p_data);
+          }
           auto part_mask = CompareFun<SimdStyle, Idof>::apply(data, m_lower_predicate_reg, m_upper_predicate_reg);
           // Increment the valid count
           auto count_increment =
@@ -501,10 +548,17 @@ namespace tuddbs {
 
       // Get the result pointer
       auto result = reinterpret_iterable<DataSinkType>(p_result);
+
+      typename SimdStyle::register_type data;
+
       // Iterate over the data simdified and apply the Scan for equality
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++result) {
         // Load data from the source
-        auto data = tsl::load<SimdStyle, Idof>(p_data);
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          data = tsl::load<SimdStyle, Idof>(p_data);
+        } else {
+          data = tsl::loadu<SimdStyle, Idof>(p_data);
+        }
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = CompareFun<SimdStyle, Idof>::apply(data, m_lower_predicate_reg, m_upper_predicate_reg);
@@ -536,9 +590,9 @@ namespace tuddbs {
       enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::dense_bit_mask>,
                                              std::tuple<hints::operators::scan::count_bits>> = {}) noexcept
       -> DataSinkType {
-      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * 8;
+      constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
-      auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
+      auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
 
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
@@ -546,13 +600,19 @@ namespace tuddbs {
       // Get the result pointer
       auto result = reinterpret_iterable<DataSinkType>(p_result);
 
+      typename SimdStyle::register_type data;
+
       // Iterate over the data simdified and apply the Scan for equality
-      for (; p_data != batched_end_end; p_data += bits_per_mask, ++result) {
+      for (; p_data != batched_end; ++result) {
         auto mask = tsl::integral_all_false<SimdStyle, Idof>();
         for (size_t i = 0; i < bits_per_mask;
              i += SimdStyle::vector_element_count(), p_data += SimdStyle::vector_element_count()) {
           // Load data from the source
-          auto data = tsl::load<SimdStyle, Idof>(p_data);
+          if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+            data = tsl::load<SimdStyle, Idof>(p_data);
+          } else {
+            data = tsl::loadu<SimdStyle, Idof>(p_data);
+          }
           auto part_mask = CompareFun<SimdStyle, Idof>::apply(data, m_lower_predicate_reg, m_upper_predicate_reg);
           mask = tsl::insert_mask<SimdStyle, Idof>(mask, tsl::to_integral<SimdStyle>(part_mask), i);
           // Store the result as an integral value into the data sink
@@ -593,10 +653,16 @@ namespace tuddbs {
       // Get the result pointer
       auto result = reinterpret_iterable<DataSinkType>(p_result);
 
+      typename SimdStyle::register_type data_reg;
+
       // Iterate over the data simdified and apply the Scan for equality
-      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++result) {
+      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count()) {
         // Load data from the source
-        auto data_reg = tsl::load<SimdStyle, Idof>(p_data);
+        if constexpr (has_hint<HintSet, hints::memory::aligned>) {
+          data_reg = tsl::load<SimdStyle, Idof>(p_data);
+        } else {
+          data_reg = tsl::loadu<SimdStyle, Idof>(p_data);
+        }
         // Compare the data with the predicate producing a mask type (either
         // register or integral type)
         auto mask = tsl::to_integral<SimdStyle>(

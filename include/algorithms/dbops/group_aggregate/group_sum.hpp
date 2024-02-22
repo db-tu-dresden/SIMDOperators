@@ -107,9 +107,8 @@ namespace tuddbs {
       auto lookup_position =
         normalizer<KeySimdStyle, HintSet, Idof>::align_value(normalizer<KeySimdStyle, HintSet, Idof>::normalize_value(
           default_hasher<KeySimdStyle, Idof>::hash_value(key), m_map_element_count));
-
+      typename KeySimdStyle::register_type map_reg;
       while (true) {
-        typename KeySimdStyle::register_type map_reg;
         if constexpr (has_hint<HintSet, hints::memory::aligned>) {
           // load N values from the map
           map_reg = tsl::load<KeySimdStyle, Idof>(m_key_sink + lookup_position);
@@ -186,7 +185,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    SimdOpsIterable auto p_value, intermediate_hint_t<HS>::enable_for_bitmask = {}) noexcept -> void {
+                    SimdOpsIterable auto p_value, activate_for_bit_mask<HS> = {}) noexcept -> void {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<KeySimdStyle>(p_data, p_end);
       // Get the end of the data
@@ -218,8 +217,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    SimdOpsIterable auto p_value, intermediate_hint_t<HS>::enable_for_dense_bitmask = {}) noexcept
-      -> void {
+                    SimdOpsIterable auto p_value, activate_for_dense_bit_mask<HS> = {}) noexcept -> void {
       constexpr auto const bits_per_mask = sizeof(typename KeySimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -351,6 +349,12 @@ namespace tuddbs {
         }
       }
     }
+
+    template <tsl::VectorProcessingStyle OtherSimdStlye, tsl::TSLArithmetic OtherValueType, class OtherHintSet,
+              typename OtherIdof>
+    auto merge(Grouper_Aggregate_Sum_Hash_SIMD_Linear_Displacement<OtherSimdStlye, OtherValueType, OtherHintSet,
+                                                                   OtherIdof> const &other) noexcept -> void {}
+    auto finalize() const noexcept -> void {}
   };
   template <tsl::VectorProcessingStyle _SimdStyle, tsl::TSLArithmetic _ValueType = typename _SimdStyle::base_type,
             class HintSet = OperatorHintSet<hints::hashing::size_exp_2>, typename Idof = tsl::workaround>
