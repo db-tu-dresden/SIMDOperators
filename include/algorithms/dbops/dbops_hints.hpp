@@ -23,6 +23,7 @@
 #ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_HINTS_HPP
 #define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_HINTS_HPP
 
+#include "algorithms/utils/hinting.hpp"
 namespace tuddbs {
 
   namespace hints {
@@ -45,5 +46,14 @@ namespace tuddbs {
     }  // namespace intermediate
   }    // namespace hints
 
+  template <typename HS>
+  struct intermediate_hint_t {
+    static_assert(count_hints<HS, hints::intermediate::dense_bit_mask, hints::intermediate::bit_mask,
+                              hints::intermediate::position_list> == 1,
+                  "Intermediate type can be only one of the supported types");
+    constexpr static bool use_dense_bitmask = has_hint<HS, hints::intermediate::dense_bit_mask>;
+    constexpr static bool use_bitmask = has_hint<HS, hints::intermediate::bit_mask>;
+    constexpr static bool use_position_list = has_hint<HS, hints::intermediate::position_list>;
+  };
 }  // namespace tuddbs
 #endif

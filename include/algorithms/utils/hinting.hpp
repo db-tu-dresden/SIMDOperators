@@ -68,5 +68,17 @@ namespace tuddbs {
     typename std::enable_if_t<has_hints_mutual_excluding<HS, HasHintsTuple, HasNotHintsTuple>,
                               std::tuple<HasHintsTuple, HasNotHintsTuple>>;
 
+  template <typename HS, typename Hint>
+  struct qualifying_tuple {
+    using type = std::conditional_t<has_hint<HS, Hint>, std::tuple<Hint>, std::tuple<>>;
+  };
+
+  template <typename HS, typename... Hints>
+  struct qualifying_tuples {
+    using type = decltype(std::tuple_cat(std::declval<typename qualifying_tuple<HS, Hints>::type>()...));
+  };
+
+  template <typename HS, typename... Hints>
+  inline constexpr size_t count_hints = std::tuple_size_v<typename qualifying_tuples<HS, Hints...>::type>;
 }  // namespace tuddbs
 #endif
