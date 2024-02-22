@@ -291,7 +291,7 @@ namespace tuddbs {
       auto result = reinterpret_iterable<DataSinkType>(p_result);
 
       // Iterate over the data simdified and apply the Scan for equality
-      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++result) {
+      for (; p_data != simd_end; p_data += SimdStyle::vector_element_count()) {
         // Load data from the source
         auto data_reg = tsl::load<SimdStyle, Idof>(p_data);
         // Compare the data with the predicate producing a mask type (either
