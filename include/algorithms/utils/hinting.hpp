@@ -23,6 +23,7 @@
 #ifndef SIMDOPS_INCLUDE_ALGORITHMS_UTILS_HINTING_HPP
 #define SIMDOPS_INCLUDE_ALGORITHMS_UTILS_HINTING_HPP
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
 
@@ -80,5 +81,6 @@ namespace tuddbs {
 
   template <typename HS, typename... Hints>
   inline constexpr size_t count_hints = std::tuple_size_v<typename qualifying_tuples<HS, Hints...>::type>;
+
 }  // namespace tuddbs
 #endif

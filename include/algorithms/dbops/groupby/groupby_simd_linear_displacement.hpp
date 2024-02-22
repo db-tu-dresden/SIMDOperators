@@ -279,8 +279,10 @@ namespace tuddbs {
       }
     }
 
+    template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    PositionType start_position = 0) noexcept -> void {
+                    PositionType start_position = 0, intermediate_hint_t<HS>::enable_for_bitmask = {}) noexcept
+      -> void {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
       // Get the end of the data
@@ -325,9 +327,10 @@ namespace tuddbs {
       }
     }
 
-    template <class HS = HintSet, enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>>
+    template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    PositionType start_position = 0) noexcept -> void {
+                    PositionType start_position = 0, intermediate_hint_t<HS>::enable_for_dense_bitmask = {}) noexcept
+      -> void {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -485,8 +488,10 @@ namespace tuddbs {
       }
     }
 
+    template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_output_gids, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    SimdOpsIterable auto p_valid_masks) const noexcept -> void {
+                    SimdOpsIterable auto p_valid_masks, intermediate_hint_t<HS>::enable_for_bitmask = {}) const noexcept
+      -> void {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
       // Get the end of the data
@@ -511,9 +516,10 @@ namespace tuddbs {
       }
     }
 
-    template <class HS = HintSet, enable_if_has_hint_t<HS, hints::intermediate::dense_bit_mask>>
+    template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_output_gids, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    SimdOpsIterable auto p_valid_masks) const noexcept -> void {
+                    SimdOpsIterable auto p_valid_masks,
+                    intermediate_hint_t<HS>::enable_for_dense_bitmask = {}) const noexcept -> void {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end_end = batched_iter_end<bits_per_mask>(p_data, p_end);

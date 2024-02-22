@@ -185,12 +185,8 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(
-      SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-      SimdOpsIterable auto p_value,
-      enable_if_has_hints_mutual_excluding_t<
-        HS, std::tuple<hints::intermediate::dense_bit_mask>,
-        std::tuple<hints::intermediate::dense_bit_mask, hints::intermediate::position_list>> = {}) noexcept -> void {
+    auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
+                    SimdOpsIterable auto p_value, intermediate_hint_t<HS>::enable_for_bitmask = {}) noexcept -> void {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<KeySimdStyle>(p_data, p_end);
       // Get the end of the data
@@ -222,10 +218,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end, SimdOpsIterable auto p_valid_masks,
-                    SimdOpsIterable auto p_value,
-                    enable_if_has_hints_mutual_excluding_t<
-                      HS, std::tuple<hints::intermediate::dense_bit_mask>,
-                      std::tuple<hints::intermediate::bit_mask, hints::intermediate::position_list>> = {}) noexcept
+                    SimdOpsIterable auto p_value, intermediate_hint_t<HS>::enable_for_dense_bitmask = {}) noexcept
       -> void {
       constexpr auto const bits_per_mask = sizeof(typename KeySimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
