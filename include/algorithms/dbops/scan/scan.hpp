@@ -47,6 +47,15 @@ namespace tuddbs {
     using base_type = typename SimdStyle::base_type;
     using result_base_type = typename SimdStyle::imask_type;
 
+    using CTorParamTupleT = std::tuple<typename SimdStyle::base_type const>;
+    static constexpr bool ProducesBitmask = has_hint<HintSet, hints::intermediate::bit_mask>;
+
+    constexpr size_t byte_count(SimdOpsIterable auto p_start, SimdOpsIterableOrSizeT auto p_end) {
+      auto it_end = iter_end(p_start, p_end);
+      auto dist = it_end - p_start;
+      return dist * sizeof(ResultType);
+    }
+
    private:
     using ScalarT = tsl::simd<typename SimdStyle::base_type, tsl::scalar>;
     using UnsignedSimdT = typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_type>;
@@ -373,6 +382,14 @@ namespace tuddbs {
     using base_type = typename SimdStyle::base_type;
     using result_base_type = typename SimdStyle::imask_type;
 
+    using CTorParamTupleT = std::tuple<typename SimdStyle::base_type const, typename SimdStyle::base_type const>;
+    static constexpr bool ProducesBitmask = has_hint<HintSet, hints::intermediate::bit_mask>;
+    constexpr size_t byte_count(SimdOpsIterable auto p_start, SimdOpsIterableOrSizeT auto p_end) {
+      auto it_end = iter_end(p_start, p_end);
+      auto dist = it_end - p_start;
+      return dist * sizeof(ResultType);
+    }
+
    private:
     using ScalarT = tsl::simd<typename SimdStyle::base_type, tsl::scalar>;
     using UnsignedSimdT = typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_type>;
@@ -646,7 +663,7 @@ namespace tuddbs {
       auto const position_increment_reg = tsl::set1<ResultSimdStyle>(ResultSimdStyle::vector_element_count());
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
-      auto const position_simd_end = (p_end - p_data) + start_position;
+      auto position_simd_end = (p_end - p_data) + start_position;
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
@@ -668,12 +685,12 @@ namespace tuddbs {
         auto mask = tsl::to_integral<SimdStyle>(
           CompareFun<SimdStyle, Idof>::apply(data_reg, m_lower_predicate_reg, m_upper_predicate_reg));
 
-        if constexpr (sizeof(typename SimdStyle::base_t) == sizeof(ResultType)) {
+        if constexpr (sizeof(typename SimdStyle::base_type) == sizeof(ResultType)) {
           tsl::compress_store<ResultSimdStyle>(mask, result, current_positions_reg);
           result += tsl::mask_population_count<SimdStyle>(mask);
           current_positions_reg = tsl::add<ResultSimdStyle, Idof>(current_positions_reg, position_increment_reg);
         } else {
-          for (int i = 0; i < SimdStyle::vector_element_count(); i += ResultSimdStyle::vector_element_count()) {
+          for (size_t i = 0; i < SimdStyle::vector_element_count(); i += ResultSimdStyle::vector_element_count()) {
             auto current_mask = tsl::extract_mask<ResultSimdStyle, Idof>(mask, i);
             tsl::compress_store<ResultSimdStyle>(current_mask, result, current_positions_reg);
             result += tsl::mask_population_count<ResultSimdStyle>(current_mask);
