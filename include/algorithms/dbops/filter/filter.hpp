@@ -57,7 +57,7 @@ namespace tuddbs {
    public:
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    SimdOpsIterable auto p_valid_masks, activate_for_bit_mask<HS> = {}) const noexcept -> DataSinkType {
+                    SimdOpsIterable auto p_valid_masks, [[maybe_unused]] SimdOpsIterable auto p_valid_masks_end, activate_for_bit_mask<HS> = {}) const noexcept -> DataSinkType {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
 
@@ -83,7 +83,7 @@ namespace tuddbs {
         auto current_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
         int position = 0;
         for (; p_data != end; ++p_data, ++position) {
-          if (tsl::test_mask(current_mask, position)) {
+          if (tsl::test_mask<SimdStyle, Idof>(current_mask, position)) {
             *result = *p_data;
             ++result;
           }
@@ -94,7 +94,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    SimdOpsIterable auto p_valid_masks, activate_for_dense_bit_mask<HS> = {}) const noexcept
+                    SimdOpsIterable auto p_valid_masks, [[maybe_unused]] SimdOpsIterable auto p_valid_masks_end, activate_for_dense_bit_mask<HS> = {}) const noexcept
       -> DataSinkType {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
@@ -136,8 +136,8 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_position_list,
-                    SimdOpsIterable auto p_position_list_end, SimdOpsIterable auto p_data,
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data,
+                    SimdOpsIterable auto p_end, SimdOpsIterable auto p_position_list, SimdOpsIterable auto p_position_list_end,
                     activate_for_position_list<HS> = {}) const noexcept -> DataSinkType {
       auto positions = reinterpret_iterable<ValidElementIterableType>(p_position_list);
       // Get the end of the data
