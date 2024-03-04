@@ -86,6 +86,7 @@ namespace tuddbs {
           *p_result = *p_left_data | *p_right_data;
         }
       }
+      return reinterpret_iterable<DataSinkType>(p_result);
     }
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_left_data,
@@ -120,6 +121,7 @@ namespace tuddbs {
           *p_result = *p_left_data | *p_right_data;
         }
       }
+      return reinterpret_iterable<DataSinkType>(p_result);
     }
 
     template <class HS = HintSet>

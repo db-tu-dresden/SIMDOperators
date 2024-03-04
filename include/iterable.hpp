@@ -112,7 +112,7 @@ namespace tuddbs {
    * @tparam T The type to check.
    */
   template <typename T>
-  concept SimdOpsIterableOrSizeT = SimdOpsIterableClass<T> || std::is_unsigned_v<T>;
+  concept SimdOpsIterableOrSizeT = SimdOpsIterable<T> || std::is_unsigned_v<T>;
 
   /**
    * Calculates the end iterator for the given range.
@@ -142,16 +142,30 @@ namespace tuddbs {
       if (data > end) {
         throw std::invalid_argument("Begin is after end");
       }
-      return end;
+      const size_t dist = end - data;
+      return data + (dist - (dist & (SimdStyle::vector_element_count() - 1)));
+      // return end;
     }
   }
 
   template <unsigned long N>
   constexpr static auto batched_iter_end(SimdOpsIterable auto data, SimdOpsIterableOrSizeT auto end) {
-    if constexpr ((N & (N - 1)) == 0) {
-      return data + (end - (end & (N - 1)));
+    if constexpr (std::is_unsigned_v<decltype(end)>) {
+      if constexpr ((N & (N - 1)) == 0) {
+        return data + (end - (end & (N - 1)));
+      } else {
+        return data + (end - (end % N));
+      }
     } else {
-      return data + (end - (end % N));
+      if (data > end) {
+        throw std::invalid_argument("Begin is after end");
+      }
+      const size_t dist = end - data;
+      if constexpr ((N & (N - 1)) == 0) {
+        return data + (dist - (dist & (N - 1)));
+      } else {
+        return data + (dist - (dist % N));
+      }
     }
   }
 
