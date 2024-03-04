@@ -207,4 +207,4 @@ namespace tuddbs {
 
 }  // namespace tuddbs
 
-#endif
+#endif  // SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_FILTER_FILTER_HPP

@@ -130,3 +130,5 @@ namespace tuddbs {
     }
   };
 }  // namespace tuddbs
+
+#endif  // SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_UNION_UNION_HPP

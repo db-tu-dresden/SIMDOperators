@@ -130,3 +130,5 @@ namespace tuddbs {
     }
   };
 }  // namespace tuddbs
+
+#endif  // SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_INTERSECTION_INTERSECTION_HPP
