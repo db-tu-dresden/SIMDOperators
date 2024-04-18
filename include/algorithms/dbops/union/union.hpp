@@ -53,6 +53,12 @@ namespace tuddbs {
     ~Union() = default;
 
    public:
+    constexpr size_t byte_count(SimdOpsIterable auto p_start, SimdOpsIterableOrSizeT auto p_end) {
+      auto it_end = iter_end(p_start, p_end);
+      auto dist = it_end - p_start;
+      return dist * sizeof(ResultType);
+    }
+
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_left_data,
                     SimdOpsIterableOrSizeT auto p_left_end, SimdOpsIterable auto p_right_data,
