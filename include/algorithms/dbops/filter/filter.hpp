@@ -57,7 +57,7 @@ namespace tuddbs {
    public:
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    SimdOpsIterable auto p_valid_masks, [[maybe_unused]] SimdOpsIterable auto p_valid_masks_end, activate_for_bit_mask<HS> = {}) const noexcept -> DataSinkType {
+                    SimdOpsIterable auto p_valid_masks, [[maybe_unused]] SimdOpsIterable auto p_valid_masks_end, activate_for_bit_mask<HS> = {}) const noexcept -> decltype(p_result) {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
 
@@ -65,7 +65,8 @@ namespace tuddbs {
       auto const end = iter_end(p_data, p_end);
       // Get the result pointer
       auto valid_masks = reinterpret_iterable<ValidElementIterableType>(p_valid_masks);
-      auto result = reinterpret_iterable<DataSinkType>(p_result);
+      auto result = p_result;
+      // auto result = reinterpret_iterable<DataSinkType>(p_result);
 
       typename SimdStyle::register_type data;
       for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++valid_masks) {
@@ -75,7 +76,7 @@ namespace tuddbs {
           data = tsl::loadu<SimdStyle, Idof>(p_data);
         }
         auto const current_mask = tsl::load_imask<SimdStyle, Idof>(valid_masks);
-        tsl::compress_store<SimdStyle, Idof>(current_mask, result, data);
+        tsl::compress_store<SimdStyle, Idof>(current_mask, reinterpret_iterable<DataSinkType>(result), data);
         result += tsl::mask_population_count<SimdStyle, Idof>(current_mask);
       }
 
@@ -84,7 +85,7 @@ namespace tuddbs {
         int position = 0;
         for (; p_data != end; ++p_data, ++position) {
           if (tsl::test_mask<SimdStyle, Idof>(current_mask, position)) {
-            *result = *p_data;
+            *reinterpret_iterable<DataSinkType>(result) = *p_data;
             ++result;
           }
         }
@@ -95,7 +96,7 @@ namespace tuddbs {
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
                     SimdOpsIterable auto p_valid_masks, [[maybe_unused]] SimdOpsIterable auto p_valid_masks_end, activate_for_dense_bit_mask<HS> = {}) const noexcept
-      -> DataSinkType {
+      -> decltype(p_result) {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -105,7 +106,7 @@ namespace tuddbs {
 
       auto valid_masks = reinterpret_iterable<ValidElementIterableType>(p_valid_masks);
       // Get the result pointer
-      auto result = reinterpret_iterable<DataSinkType>(p_result);
+      auto result = p_result;
 
       typename SimdStyle::register_type data;
       for (; p_data != batched_end; ++valid_masks) {
@@ -118,7 +119,7 @@ namespace tuddbs {
             data = tsl::loadu<SimdStyle, Idof>(p_data);
           }
           auto const current_mask = tsl::extract_mask<SimdStyle, Idof>(mask, i);
-          tsl::compress_store<SimdStyle, Idof>(current_mask, result, data);
+          tsl::compress_store<SimdStyle, Idof>(current_mask, reinterpret_iterable<DataSinkType>(result), data);
           result += tsl::mask_population_count<SimdStyle, Idof>(current_mask);
         }
       }
@@ -127,7 +128,7 @@ namespace tuddbs {
         int position = 0;
         for (; p_data != end; ++p_data, ++position) {
           if (tsl::test_mask(current_mask, position)) {
-            *result = *p_data;
+            *reinterpret_iterable<DataSinkType>(result) = *p_data;
             ++result;
           }
         }
@@ -138,12 +139,12 @@ namespace tuddbs {
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data,
                     SimdOpsIterable auto p_end, SimdOpsIterable auto p_position_list, SimdOpsIterable auto p_position_list_end,
-                    activate_for_position_list<HS> = {}) const noexcept -> DataSinkType {
+                    activate_for_position_list<HS> = {}) const noexcept -> decltype(p_result) {
       auto positions = reinterpret_iterable<ValidElementIterableType>(p_position_list);
       // Get the end of the data
       auto const end = iter_end(positions, p_position_list_end);
       // Get the result pointer
-      auto result = reinterpret_iterable<DataSinkType>(p_result);
+      auto result = p_result;
 
       if constexpr (sizeof(typename SimdStyle::base_type) == sizeof(typename PositionalSimdStyle::base_type)) {
         // Get the end of the SIMD iteration
@@ -158,9 +159,9 @@ namespace tuddbs {
           }
           auto const data = tsl::gather<SimdStyle, Idof>(p_data, current_positions);
           if constexpr (has_hint<HintSet, hints::memory::aligned>) {
-            tsl::store<SimdStyle, Idof>(result, data);
+            tsl::store<SimdStyle, Idof>(reinterpret_iterable<DataSinkType>(result), data);
           } else {
-            tsl::storeu<SimdStyle, Idof>(result, data);
+            tsl::storeu<SimdStyle, Idof>(reinterpret_iterable<DataSinkType>(result), data);
           }
         }
 
@@ -185,15 +186,15 @@ namespace tuddbs {
           }
           auto const data = tsl::convert_down<PositionalSimdStyle, SimdStyle, Idof>(data_array);
           if constexpr (has_hint<HintSet, hints::memory::aligned>) {
-            tsl::store<SimdStyle, Idof>(result, data);
+            tsl::store<SimdStyle, Idof>(reinterpret_iterable<DataSinkType>(result), data);
           } else {
-            tsl::storeu<SimdStyle, Idof>(result, data);
+            tsl::storeu<SimdStyle, Idof>(reinterpret_iterable<DataSinkType>(result), data);
           }
         }
       }
       if (positions != end) {
         for (; positions != end; ++positions, ++result) {
-          *result = p_data[*positions];
+          *reinterpret_iterable<DataSinkType>(result) = p_data[*positions];
         }
       }
       return result;
