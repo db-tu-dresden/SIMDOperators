@@ -17,3 +17,10 @@ create_test(
   INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
   LIBRARIES pthread
 )
+
+create_test(
+  TARGET_NAME join_test
+  SRC_FILES algorithms/dbops/join_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
