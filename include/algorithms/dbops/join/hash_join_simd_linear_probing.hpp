@@ -94,8 +94,8 @@ namespace tuddbs {
       size_t p_map_element_count, KeyType p_empty_bucket_value = 0,
       PositionType p_invalid_position = std::numeric_limits<PositionType>::max(), bool initialize = true)
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
-        m_used_bucket_sink(reinterpret_iterable<BucketUsedSinkType>(p_used_bucket_sink)),
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_position_sink)),
+        m_used_bucket_sink(reinterpret_iterable<BucketUsedSinkType>(p_used_bucket_sink)),
         m_bucket_count(p_map_element_count),
         m_used_bucket_count(0),
         m_empty_bucket_value(p_empty_bucket_value),
@@ -104,7 +104,7 @@ namespace tuddbs {
         assert((m_bucket_count & (m_bucket_count - 1)) == 0);
       }
       if (initialize) {
-        for (auto i = 0; i < m_bucket_count; ++i) {
+        for (size_t i = 0; i < m_bucket_count; ++i) {
           m_key_sink[i] = m_empty_bucket_value;
           m_used_bucket_sink[i] = m_bucket_empty;
           m_original_positions_sink[i] = m_invalid_position;
@@ -314,8 +314,8 @@ namespace tuddbs {
                                                  SimdOpsIterable auto p_position_sink, size_t p_map_element_count,
                                                  KeyType p_empty_bucket_value = 0)
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
-        m_used_bucket_sink(reinterpret_iterable<BucketUsedSinkType>(p_used_bucket_sink)),
         m_original_positions_sink(reinterpret_iterable<PositionSinkType>(p_position_sink)),
+        m_used_bucket_sink(reinterpret_iterable<BucketUsedSinkType>(p_used_bucket_sink)),
         m_bucket_count(p_map_element_count),
         m_empty_bucket_value(p_empty_bucket_value) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
