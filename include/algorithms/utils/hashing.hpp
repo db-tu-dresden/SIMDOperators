@@ -47,18 +47,31 @@ namespace tuddbs {
    public:
     [[nodiscard]] TSL_FORCE_INLINE static auto normalize(typename SimdStyle::register_type position_hint,
                                                          typename SimdStyle::register_type bucket_count) {
-      if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
-        return tsl::binary_and<SimdStyle, Idof>(position_hint, bucket_count);
-      } else {
-        return tsl::mod<SimdStyle, Idof>(position_hint, bucket_count);
+      if constexpr (std::is_integral_v<typename SimdStyle::base_type>) {
+         if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
+           return tsl::binary_and<SimdStyle, Idof>(position_hint, bucket_count);
+         } else {
+           return tsl::mod<SimdStyle, Idof>(position_hint, bucket_count);
+         }
+      else {
+         // do the float magic here
+         using IntegralSimdStyle = typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_type>;
+         auto casted_position_hint = tsl::reinterpret<SimdStyle, IntegralSimdStyle>(position_hint);
       }
     }
     [[nodiscard]] TSL_FORCE_INLINE static auto normalize_value(typename SimdStyle::base_type position_hint,
                                                                typename SimdStyle::base_type bucket_count) {
-      if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
-        return position_hint & (bucket_count - 1);
+      if constexpr (std::is_integral_v<typename SimdStyle::base_type>) {
+         if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
+           return position_hint & (bucket_count - 1);
+         } else {
+           return position_hint % bucket_count;
+         }
       } else {
-        return position_hint % bucket_count;
+         //auto casted_integral_position_hint = static_cast<typename SimdStyle::offset_base_type>(position_hint);
+         auto casted_integral_position_hint = *(reinterpret_cast<typename SimdStyle::offset_base_type*>(&position_hint));
+         //...
+
       }
     }
     [[nodiscard]] TSL_FORCE_INLINE static auto align_value(typename SimdStyle::base_type position_hint) {
