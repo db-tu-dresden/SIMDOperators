@@ -61,5 +61,6 @@
     "bitset": "cpp",
     "thread": "cpp"
   },
-  "cmake.options.statusBarVisibility": "visible"
+  "cmake.options.statusBarVisibility": "visible",
+  "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }
