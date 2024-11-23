@@ -419,7 +419,7 @@ namespace tuddbs {
       bool not_found = false;
       for (; p_data != end; ++p_data, ++current_pos) {
         auto key = *p_data;
-        *p_output_ht = lookup(key, not_found);
+        *p_output_ht = (size_t)lookup(key, not_found);
         *p_output_data = current_pos;
 
         if (!not_found) {

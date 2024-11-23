@@ -53,7 +53,7 @@ namespace tuddbs {
          } else {
            return tsl::mod<SimdStyle, Idof>(position_hint, bucket_count);
          }
-      else {
+      } else {
          // do the float magic here
          using IntegralSimdStyle = typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_type>;
          auto casted_position_hint = tsl::reinterpret<SimdStyle, IntegralSimdStyle>(position_hint);

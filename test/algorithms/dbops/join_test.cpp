@@ -22,7 +22,7 @@
 #define HASH_BUCKET_COUNT (GLOBAL_GROUP_COUNT << 1)
 #define DATA_GENERATION_AMOUNT (HASH_BUCKET_COUNT << 2)
 #define MAX_PARALLELISM_DEGREE 32
-#define BENCHMARK_ITERATIONS 5
+#define BENCHMARK_ITERATIONS 30
 
 namespace tuddbs {
   static uint64_t bench_seed{0};
@@ -33,387 +33,266 @@ namespace tuddbs {
     }
     return bench_seed;
   }
-
-  static std::map<size_t, double> bench_timings;
-  static void print_timings(const size_t normalizer) {
-    std::stringstream ss;
-    for (auto it = bench_timings.begin(); it != bench_timings.end(); ++it) {
-      ss << std::setw(2) << it->first << ": " << std::fixed << std::setprecision(2) << std::setw(12)
-         << it->second / normalizer << std::endl;
-    }
-    std::cout << ss.str() << std::endl;
-  }
 }  // namespace tuddbs
 
-template <typename T>
-struct hash_join_column_set_t {
-  tuddbs::InMemoryColumn<T> key_sink;
-  tuddbs::InMemoryColumn<T> value_sink;
-  tuddbs::InMemoryColumn<T> used_sink;
-
-  explicit hash_join_column_set_t(const size_t map_count, auto allocator, auto deleter)
-    : key_sink(map_count, allocator, deleter),
-      value_sink(map_count, allocator, deleter),
-      used_sink(map_count, allocator, deleter) {}
-
-  ~hash_join_column_set_t() {}
-};
 
 template <typename T>
-T random_data_generator(T *raw_data, const size_t raw_data_amount, tuddbs::InMemoryColumn<T> &column_a,
-                        const size_t column_a_size, tuddbs::InMemoryColumn<T> &column_b, size_t column_b_size,
-                        size_t hash_bucket_count, const T start_at = 0, const size_t run = 0) {
+auto join_alloc_fn(size_t i) -> T * {
+  return static_cast<T *>(_mm_malloc(i * sizeof(T), 64));
+}
+
+template <typename T>
+auto join_dealloc_fn(T *ptr) { _mm_free(ptr); }
+
+
+template <typename T>
+void random_data_generator(tuddbs::InMemoryColumn<T> &build_column,
+                        tuddbs::InMemoryColumn<T> &probe_column,
+                        const T min_value = 0, const size_t run = 0
+) {
+  
   size_t seed = tuddbs::get_bench_seed();
+  
+  std::uniform_int_distribution<size_t> dist_b(0, build_column.count() - 1);
   std::mt19937 mt(seed + run);
-  std::uniform_int_distribution<> dist_b(0, hash_bucket_count - 1);
-
-  std::iota(raw_data, raw_data + raw_data_amount, start_at);
-  std::shuffle(raw_data, raw_data + raw_data_amount, mt);
-  std::sort(raw_data, raw_data + hash_bucket_count);
-
-  T max_findable = raw_data[column_a_size - 1];
-  std::copy(raw_data, raw_data + column_a_size, column_a.begin());
-
-  for (auto it = column_b.begin(); it != column_b.end(); ++it) {
-    (*it) = raw_data[dist_b(mt)];
+  
+  std::iota(build_column.begin(), build_column.end(), min_value);
+  std::shuffle(build_column.begin(), build_column.end(), mt);
+  for (auto it = probe_column.begin(); it != probe_column.end(); ++it) {
+    (*it) = build_column.get_value(dist_b(mt));
   }
-  return max_findable;
 }
+
 
 template <typename T>
-void result_checker(bool &all_found, bool &wrong_result, tuddbs::InMemoryColumn<T> &column_a,
-                    const size_t column_a_size, tuddbs::InMemoryColumn<T> &column_b, size_t column_b_size,
-                    T *join_result_a, T *join_result_b, size_t result_size, T max_findable_value) {
-  for (size_t i = 0; i < result_size; i++) {
-    if (*(column_a.begin() + join_result_a[i]) != *(column_b.begin() + join_result_b[i])) {
-      std::cerr << "Result Mismatch at " << i << "\tKey A " << *(column_a.begin() + join_result_a[i]) << "\tKey B "
-                << *(column_b.begin() + join_result_b[i]) << std::endl;
-      wrong_result = true;
-    }
-  }
+auto verify(tuddbs::InMemoryColumn<size_t> &build_column_result,
+            tuddbs::InMemoryColumn<size_t> &probe_column_result,
+            size_t const result_count,
+            tuddbs::InMemoryColumn<T> const &build_column,
+            tuddbs::InMemoryColumn<T> const &probe_column
+) {
+  std::unordered_map<T, size_t> stl_hashmap;
+  stl_hashmap.reserve(build_column.count());
+  tuddbs::InMemoryColumn<size_t> reference_build_column_result(probe_column.count());
+  tuddbs::InMemoryColumn<size_t> reference_probe_column_result(probe_column.count());
 
-  size_t local_join_result = 0;
-  size_t missing_result = 0;
-  auto it = column_b.cbegin();
-  for (; it != column_b.cend(); ++it) {
-    const size_t curr_pos = it - column_b.cbegin();
-    if (*it <= max_findable_value) {  // data should be in the table
-      if (local_join_result >= result_size) {
-        std::cerr << "Missing Result Total: " << ++missing_result << std::endl;
-        wrong_result = true;
-      } else if (curr_pos != join_result_b[local_join_result]) {  // BUT we didn't find the key
-        all_found = false;
-        std::cerr << *it << " didn't produce a join partner or position list out of order. Result position: "
-                  << join_result_b[local_join_result] << " <>  is position: " << curr_pos << std::endl;
-      } else {  // we found it in the result
-        local_join_result++;
-      }
-    } else {  // data is not in the table
-      if (join_result_b[local_join_result] == curr_pos && local_join_result < result_size) {  // BUT we found a match
-        wrong_result = true;
-        std::cerr << "Found Element in Table that shouldn't be in the Table at result index: " << local_join_result
-                  << " Key A: " << *(column_a.begin() + join_result_a[local_join_result])
-                  << " Key B: " << *(column_b.begin() + join_result_b[local_join_result]) << std::endl;
-        local_join_result++;
-      }
+  const auto t_start = std::chrono::high_resolution_clock::now();
+  for (auto it = build_column.cbegin(); it != build_column.cend(); ++it) {
+    stl_hashmap[*it] = it - build_column.cbegin();
+  }
+  auto reference_build_column_result_it = reference_build_column_result.begin();
+  auto reference_probe_column_result_it = reference_probe_column_result.begin();
+  for (auto it = probe_column.cbegin(); it != probe_column.cend(); ++it) {
+    if (auto search = stl_hashmap.find(*it); search != stl_hashmap.end()) {
+      *reference_build_column_result_it = search->second;
+      *reference_probe_column_result_it = it - probe_column.cbegin();
+      ++reference_build_column_result_it;
+      ++reference_probe_column_result_it;
     }
   }
+  const auto t_end = std::chrono::high_resolution_clock::now();
+
+  REQUIRE((reference_build_column_result_it - reference_build_column_result.begin()) == result_count);
+
+  std::vector<std::pair<size_t, size_t>> result_combined;
+  for (size_t i = 0; i < result_count; i++) {
+    result_combined.emplace_back(build_column_result.get_value(i), probe_column_result.get_value(i));
+  }
+  std::sort(result_combined.begin(), result_combined.end(), [](const std::pair<size_t, size_t>& x, const std::pair<size_t, size_t>& y) {
+    return x.first < y.first || (x.first == y.first && x.second < y.second);
+  });
+
+  std::vector<std::pair<size_t, size_t>> reference_result_combined;
+  for (size_t i = 0; i < result_count; i++) {
+    reference_result_combined.emplace_back(reference_build_column_result.get_value(i), reference_probe_column_result.get_value(i));
+  }
+  std::sort(reference_result_combined.begin(), reference_result_combined.end(), [](const std::pair<size_t, size_t>& x, const std::pair<size_t, size_t>& y) {
+    return x.first < y.first || (x.first == y.first && x.second < y.second);
+  });
+
+  bool equal = std::equal(result_combined.begin(), result_combined.end(), reference_result_combined.begin());
+  REQUIRE(equal);
+  return std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
 }
 
-// #### std::unordered_map implementation
-TEST_CASE("Join Default for uint64_t", "[cpu][groupby][uint64_t][stl-seq]") {
-  std::cout << "[stl-seq] uint64_t Sequential" << std::endl;
-  using base_t = uint64_t;
+template <typename T, typename Extension, bool ContainsZero>
+auto test_join() {
+  std::cout << "Testing " << tsl::type_name<Extension>() << " with " << tsl::type_name<T>() << (ContainsZero ? " with zero key" : "") << std::endl;
+  using SimdExt = tsl::simd<T, Extension>;
 
-  // data allocator
-  auto join_allocator = [](size_t i) -> base_t * {
-    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
-  };
-  auto join_deleter = [](base_t *ptr) { _mm_free(ptr); };
+  using ValueT = std::conditional_t<
+    std::is_floating_point_v<T>,
+      std::conditional_t<std::is_same_v<T, float>, uint32_t, uint64_t>,
+      std::make_unsigned_t<T>>; 
+    
+  using hash_hint_set = std::conditional_t<
+    ContainsZero,
+    tuddbs::OperatorHintSet<tuddbs::hints::hashing::linear_displacement,
+                            tuddbs::hints::hashing::size_exp_2,
+                            tuddbs::hints::hash_join::keys_may_contain_empty_indicator,
+                            tuddbs::hints::hash_join::global_first_occurence_required>,
+    tuddbs::OperatorHintSet<tuddbs::hints::hashing::linear_displacement,
+                            tuddbs::hints::hashing::size_exp_2,
+                            tuddbs::hints::hash_join::global_first_occurence_required>>;
 
-  // Columns
+  using hash_join_t = typename tuddbs::Hash_Join<SimdExt, ValueT, hash_hint_set>;
 
-  base_t *raw_data = join_allocator(DATA_GENERATION_AMOUNT);
-  tuddbs::InMemoryColumn<base_t> column_to_join_a(DATA_ELEMENT_COUNT_A, join_allocator, join_deleter);
-  tuddbs::InMemoryColumn<base_t> column_to_join_b(DATA_ELEMENT_COUNT_B, join_allocator, join_deleter);
+  auto const build_element_count = (ContainsZero) ?
+    std::clamp((long unsigned int) DATA_ELEMENT_COUNT_A, (long unsigned int)0, (long unsigned int)std::numeric_limits<T>::max()) :
+    std::clamp((long unsigned int) DATA_ELEMENT_COUNT_A, (long unsigned int)1, (long unsigned int)std::numeric_limits<T>::max());
 
-  // ResultArrays.
+  auto const hash_bucket_count = 1ULL << ((sizeof(T)*CHAR_BIT) - std::countl_zero<std::make_unsigned_t<T>>(build_element_count));
+
+  tuddbs::InMemoryColumn<T> build_column(build_element_count);
+  tuddbs::InMemoryColumn<T> probe_column(DATA_ELEMENT_COUNT_B);
+
+  tuddbs::InMemoryColumn<T> hash_map_key_column(hash_bucket_count);
+  tuddbs::InMemoryColumn<ValueT> hash_map_value_column(hash_bucket_count);
+  tuddbs::InMemoryColumn<T> hash_map_used_column(hash_bucket_count);
+
+  tuddbs::InMemoryColumn<size_t> hash_join_result_build_column(DATA_ELEMENT_COUNT_B);
+  tuddbs::InMemoryColumn<size_t> hash_join_result_probe_column(DATA_ELEMENT_COUNT_B);
+
+
+  double timings_sum = 0.0;
+  double reference_timings_sum = 0.0;
   for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
-    base_t max_findable =
-      random_data_generator<base_t>(raw_data, DATA_GENERATION_AMOUNT, column_to_join_a, DATA_ELEMENT_COUNT_A,
-                                    column_to_join_b, DATA_ELEMENT_COUNT_B, HASH_BUCKET_COUNT, 0, benchIt);
-    std::unordered_map<base_t, base_t> hash_mapuh;
-    hash_mapuh.reserve(HASH_BUCKET_COUNT);
-    base_t *join_result_id_a = join_allocator(DATA_ELEMENT_COUNT_B);
-    base_t *join_result_id_b = join_allocator(DATA_ELEMENT_COUNT_B);
+    std::cout << "[INFO] Benchmark iteration " << benchIt << std::endl;
+    // std::cout << "[INFO] Generating random data... " << std::flush;
+    random_data_generator<T>(build_column, probe_column, (ContainsZero) ? 0 : 1, benchIt);
+    // std::cout << "done" << std::endl;
+
+    typename hash_join_t::builder_t builder(hash_map_key_column.begin(), hash_map_used_column.begin(),
+                                   hash_map_value_column.begin(), hash_bucket_count);
+    typename hash_join_t::prober_t prober(hash_map_key_column.begin(), hash_map_used_column.begin(),
+                                 hash_map_value_column.begin(), hash_bucket_count); 
+    
+    // std::cout << "[INFO] Starting join... " << std::flush;
     const auto t_start = std::chrono::high_resolution_clock::now();
-
-    // build phase
-    {
-      auto it = column_to_join_a.cbegin();
-      for (; it != column_to_join_a.cend(); ++it) {
-        if (!hash_mapuh.contains(*it)) {
-          const size_t curr_pos = it - column_to_join_a.cbegin();
-          hash_mapuh[*it] = curr_pos;
-        }
-      }
-    }
-
-    // probe phase
-    size_t join_result = 0;
-    {
-      auto it = column_to_join_b.cbegin();
-      for (; it != column_to_join_b.cend(); ++it) {
-        if (hash_mapuh.contains(*it)) {
-          const size_t curr_pos = it - column_to_join_b.cbegin();
-          join_result_id_a[join_result] = hash_mapuh[*it];
-          join_result_id_b[join_result] = curr_pos;
-          ++join_result;
-        }
-      }
-    }
-
+    builder(build_column.cbegin(), build_column.cend());
+    size_t join_result_count = prober(hash_join_result_build_column.begin(), hash_join_result_probe_column.begin(),
+                                probe_column.cbegin(), probe_column.cend());
     const auto t_end = std::chrono::high_resolution_clock::now();
+    // std::cout << "done" << std::endl;
 
-    bool all_found = true;
-    bool wrong_result = false;
-
-    result_checker<base_t>(all_found, wrong_result, column_to_join_a, DATA_ELEMENT_COUNT_A, column_to_join_b,
-                           DATA_ELEMENT_COUNT_B, join_result_id_a, join_result_id_b, join_result, max_findable);
-
-    REQUIRE(all_found);
-    REQUIRE(!wrong_result);
-
-    const auto bench_us = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
-    if (tuddbs::bench_timings.contains(1)) {
-      tuddbs::bench_timings[1] += bench_us;
-    } else {
-      tuddbs::bench_timings[1] = bench_us;
-    }
-
-    join_deleter(join_result_id_a);
-    join_deleter(join_result_id_b);
+    timings_sum += std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
+    // std::cout << "[INFO] Verifying results... " << std::flush;
+    reference_timings_sum += verify<T>(hash_join_result_build_column, hash_join_result_probe_column, join_result_count, build_column, probe_column);
+    // std::cout << "done" << std::endl;
   }
-
-  join_deleter(raw_data);
-  tuddbs::print_timings(BENCHMARK_ITERATIONS);
-  tuddbs::bench_timings.clear();
+  std::cout << "Average execution time          : " << std::fixed << std::setprecision(2) << timings_sum / BENCHMARK_ITERATIONS << "us" << std::endl;
+  std::cout << "Average reference execution time: " << std::fixed << std::setprecision(2) << reference_timings_sum / BENCHMARK_ITERATIONS << "us" << std::endl;
 }
 
-// #### Sequential execution
-TEST_CASE("Hash Join for uint64_t with avx2 with key may contain zero",
-          "[cpu][hash_join][uint64_t][zero_key][avx2-seq]") {
-  std::cout << "[avx2-seq][zero_key] uint64_t Sequential" << std::endl;
-  using base_t = uint64_t;
-  using namespace tuddbs;
-  using hash_join_t = Hash_Join<tsl::simd<uint64_t, tsl::avx2>, size_t,
-                                OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
-                                                hints::hash_join::keys_may_contain_empty_indicator,
-                                                hints::hash_join::global_first_occurence_required>>;
-  using hash_join_state_t = hash_join_column_set_t<base_t>;
-  // data allocator
-  auto join_allocator = [](size_t i) -> base_t * {
-    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
-  };
-  auto join_deleter = [](base_t *ptr) { _mm_free(ptr); };
 
-  // Columns
-
-  base_t *raw_data = join_allocator(DATA_GENERATION_AMOUNT);
-  tuddbs::InMemoryColumn<base_t> column_to_join_a(DATA_ELEMENT_COUNT_A, join_allocator, join_deleter);
-  tuddbs::InMemoryColumn<base_t> column_to_join_b(DATA_ELEMENT_COUNT_B, join_allocator, join_deleter);
-
-  // ResultArrays.
-  for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
-    base_t max_findable =
-      random_data_generator<base_t>(raw_data, DATA_GENERATION_AMOUNT, column_to_join_a, DATA_ELEMENT_COUNT_A,
-                                    column_to_join_b, DATA_ELEMENT_COUNT_B, HASH_BUCKET_COUNT, 0, benchIt);
-    base_t *join_result_id_a = join_allocator(DATA_ELEMENT_COUNT_B);
-    base_t *join_result_id_b = join_allocator(DATA_ELEMENT_COUNT_B);
-    hash_join_state_t hash_join_columns(HASH_BUCKET_COUNT, join_allocator, join_deleter);
-
-    hash_join_t::builder_t builder(hash_join_columns.key_sink.begin(), hash_join_columns.used_sink.begin(),
-                                   hash_join_columns.value_sink.begin(), HASH_BUCKET_COUNT);
-    hash_join_t::prober_t prober(hash_join_columns.key_sink.begin(), hash_join_columns.used_sink.begin(),
-                                 hash_join_columns.value_sink.begin(), HASH_BUCKET_COUNT);
-    const auto t_start = std::chrono::high_resolution_clock::now();
-    // build phase
-    builder(column_to_join_a.cbegin(), column_to_join_a.cend());
-
-    // probe phase
-    size_t join_result = 0;
-    join_result = prober(join_result_id_a, join_result_id_b, column_to_join_b.cbegin(), column_to_join_b.cend());
-
-    const auto t_end = std::chrono::high_resolution_clock::now();
-
-    bool all_found = true;
-    bool wrong_result = false;
-
-    result_checker<base_t>(all_found, wrong_result, column_to_join_a, DATA_ELEMENT_COUNT_A, column_to_join_b,
-                           DATA_ELEMENT_COUNT_B, join_result_id_a, join_result_id_b, join_result, max_findable);
-
-    REQUIRE(all_found);
-    REQUIRE(!wrong_result);
-
-    const auto bench_us = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
-    if (tuddbs::bench_timings.contains(1)) {
-      tuddbs::bench_timings[1] += bench_us;
-    } else {
-      tuddbs::bench_timings[1] = bench_us;
-    }
-
-    join_deleter(join_result_id_a);
-    join_deleter(join_result_id_b);
-  }
-
-  join_deleter(raw_data);
-  tuddbs::print_timings(BENCHMARK_ITERATIONS);
-  tuddbs::bench_timings.clear();
+TEST_CASE("Join for uint64_t", "[cpu][join][uint64_t][avx512]") {
+  test_join<uint64_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for uint64_t", "[cpu][join][uint64_t][avx512][zero_key]") {
+  test_join<uint64_t, tsl::avx512, true>();
 }
 
-TEST_CASE("Hash Join for uint64_t with avx2 without key may contain zero", "[cpu][hash_join][uint64_t][avx2-seq]") {
-  std::cout << "[avx2-seq] uint64_t Sequential" << std::endl;
-  using base_t = uint64_t;
-  using namespace tuddbs;
-  using hash_join_t = Hash_Join<tsl::simd<uint64_t, tsl::avx2>, size_t,
-                                OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
-                                                hints::hash_join::global_first_occurence_required>>;
-  using hash_join_state_t = hash_join_column_set_t<base_t>;
-  // data allocator
-  auto join_allocator = [](size_t i) -> base_t * {
-    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
-  };
-  auto join_deleter = [](base_t *ptr) { _mm_free(ptr); };
-
-  // Columns
-
-  base_t *raw_data = join_allocator(DATA_GENERATION_AMOUNT);
-  tuddbs::InMemoryColumn<base_t> column_to_join_a(DATA_ELEMENT_COUNT_A, join_allocator, join_deleter);
-  tuddbs::InMemoryColumn<base_t> column_to_join_b(DATA_ELEMENT_COUNT_B, join_allocator, join_deleter);
-
-  // ResultArrays.
-  for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
-    base_t max_findable =
-      random_data_generator<base_t>(raw_data, DATA_GENERATION_AMOUNT, column_to_join_a, DATA_ELEMENT_COUNT_A,
-                                    column_to_join_b, DATA_ELEMENT_COUNT_B, HASH_BUCKET_COUNT, 1, benchIt);
-    base_t *join_result_id_a = join_allocator(DATA_ELEMENT_COUNT_B);
-    base_t *join_result_id_b = join_allocator(DATA_ELEMENT_COUNT_B);
-    hash_join_state_t hash_join_columns(HASH_BUCKET_COUNT, join_allocator, join_deleter);
-
-    hash_join_t::builder_t builder(hash_join_columns.key_sink.begin(), hash_join_columns.used_sink.begin(),
-                                   hash_join_columns.value_sink.begin(), HASH_BUCKET_COUNT);
-    hash_join_t::prober_t prober(hash_join_columns.key_sink.begin(), hash_join_columns.used_sink.begin(),
-                                 hash_join_columns.value_sink.begin(), HASH_BUCKET_COUNT);
-    const auto t_start = std::chrono::high_resolution_clock::now();
-    // build phase
-    builder(column_to_join_a.cbegin(), column_to_join_a.cend());
-
-    // probe phase
-    size_t join_result = 0;
-    join_result = prober(join_result_id_a, join_result_id_b, column_to_join_b.cbegin(), column_to_join_b.cend());
-
-    const auto t_end = std::chrono::high_resolution_clock::now();
-
-    bool all_found = true;
-    bool wrong_result = false;
-
-    result_checker<base_t>(all_found, wrong_result, column_to_join_a, DATA_ELEMENT_COUNT_A, column_to_join_b,
-                           DATA_ELEMENT_COUNT_B, join_result_id_a, join_result_id_b, join_result, max_findable);
-
-    REQUIRE(all_found);
-    REQUIRE(!wrong_result);
-
-    const auto bench_us = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
-    if (tuddbs::bench_timings.contains(1)) {
-      tuddbs::bench_timings[1] += bench_us;
-    } else {
-      tuddbs::bench_timings[1] = bench_us;
-    }
-
-    join_deleter(join_result_id_a);
-    join_deleter(join_result_id_b);
-  }
-
-  join_deleter(raw_data);
-  tuddbs::print_timings(BENCHMARK_ITERATIONS);
-  tuddbs::bench_timings.clear();
+TEST_CASE("Join for uint32_t", "[cpu][join][uint32_t][avx512]") {
+  test_join<uint32_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for uint32_t", "[cpu][join][uint32_t][avx512][zero_key]") {
+  test_join<uint32_t, tsl::avx512, true>();
 }
 
-// #### Sequential Merge
-TEST_CASE("Hash Join for uint64_t with avx2 simple Merge", "[cpu][hash_join][simple_merge][uint64_t][avx2]") {
-  std::cout << "[avx2] uint64_t with simple Merge (Sequential)" << std::endl;
-  using base_t = uint64_t;
-  using namespace tuddbs;
-  using hash_join_t = Hash_Join<tsl::simd<uint64_t, tsl::avx2>, size_t,
-                                OperatorHintSet<hints::hashing::linear_displacement, hints::hashing::size_exp_2,
-                                                hints::hash_join::global_first_occurence_required>>;
-  using hash_join_state_t = hash_join_column_set_t<base_t>;
-  // data allocator
-  auto join_allocator = [](size_t i) -> base_t * {
-    return reinterpret_cast<base_t *>(_mm_malloc(i * sizeof(base_t), 64));
-  };
-  auto join_deleter = [](base_t *ptr) { _mm_free(ptr); };
+TEST_CASE("Join for uint16_t", "[cpu][join][uint16_t][avx512]") {
+  test_join<uint16_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for uint16_t", "[cpu][join][uint16_t][avx512][zero_key]") {
+  test_join<uint16_t, tsl::avx512, true>();
+}
 
-  // Columns
+TEST_CASE("Join for uint8_t", "[cpu][join][uint8_t][avx512]") {
+  test_join<uint8_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for uint8_t", "[cpu][join][uint8_t][avx512][zero_key]") {
+  test_join<uint8_t, tsl::avx512, true>();
+}
 
-  base_t *raw_data = join_allocator(DATA_GENERATION_AMOUNT);
-  tuddbs::InMemoryColumn<base_t> column_to_join_a(DATA_ELEMENT_COUNT_A, join_allocator, join_deleter);
-  tuddbs::InMemoryColumn<base_t> column_to_join_b(DATA_ELEMENT_COUNT_B, join_allocator, join_deleter);
+TEST_CASE("Join for int64_t", "[cpu][join][int64_t][avx512]") {
+  test_join<int64_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for int64_t", "[cpu][join][int64_t][avx512][zero_key]") {
+  test_join<int64_t, tsl::avx512, true>();
+}
 
-  // ResultArrays.
-  for (size_t benchIt = 0; benchIt < BENCHMARK_ITERATIONS; ++benchIt) {
-    base_t max_findable =
-      random_data_generator<base_t>(raw_data, DATA_GENERATION_AMOUNT, column_to_join_a, DATA_ELEMENT_COUNT_A,
-                                    column_to_join_b, DATA_ELEMENT_COUNT_B, HASH_BUCKET_COUNT, 1, benchIt);
-    base_t *join_result_id_a = join_allocator(DATA_ELEMENT_COUNT_B);
-    base_t *join_result_id_b = join_allocator(DATA_ELEMENT_COUNT_B);
-    hash_join_state_t hash_join_columns_1(HASH_BUCKET_COUNT, join_allocator, join_deleter);
-    hash_join_state_t hash_join_columns_2(HASH_BUCKET_COUNT, join_allocator, join_deleter);
+TEST_CASE("Join for int32_t", "[cpu][join][int32_t][avx512]") {
+  test_join<int32_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for int32_t", "[cpu][join][int32_t][avx512][zero_key]") {
+  test_join<int32_t, tsl::avx512, true>();
+}
 
-    hash_join_t::builder_t builder1(hash_join_columns_1.key_sink.begin(), hash_join_columns_1.used_sink.begin(),
-                                    hash_join_columns_1.value_sink.begin(), HASH_BUCKET_COUNT);
-    hash_join_t::prober_t prober1(hash_join_columns_1.key_sink.begin(), hash_join_columns_1.used_sink.begin(),
-                                  hash_join_columns_1.value_sink.begin(), HASH_BUCKET_COUNT);
+TEST_CASE("Join for int16_t", "[cpu][join][int16_t][avx512]") {
+  test_join<int16_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for int16_t", "[cpu][join][int16_t][avx512][zero_key]") {
+  test_join<int16_t, tsl::avx512, true>();
+}
 
-    hash_join_t::builder_t builder2(hash_join_columns_2.key_sink.begin(), hash_join_columns_2.used_sink.begin(),
-                                    hash_join_columns_2.value_sink.begin(), HASH_BUCKET_COUNT);
+TEST_CASE("Join for int8_t", "[cpu][join][int8_t][avx512]") {
+  test_join<int8_t, tsl::avx512, false>();
+}
+TEST_CASE("Join for int8_t", "[cpu][join][int8_t][avx512][zero_key]") {
+  test_join<int8_t, tsl::avx512, true>();
+}
 
-    const auto t_start = std::chrono::high_resolution_clock::now();
+TEST_CASE("Join for uint64_t", "[cpu][join][uint64_t][avx2]") {
+  test_join<uint64_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for uint64_t", "[cpu][join][uint64_t][avx2][zero_key]") {
+  test_join<uint64_t, tsl::avx2, true>();
+}
 
-    // build phase
-    builder1(column_to_join_a.cbegin(), column_to_join_a.cbegin() + DATA_ELEMENT_COUNT_A / 2);
-    builder2(column_to_join_a.cbegin() + DATA_ELEMENT_COUNT_A / 2, column_to_join_a.cend(), DATA_ELEMENT_COUNT_A / 2);
+TEST_CASE("Join for uint32_t", "[cpu][join][uint32_t][avx2]") {
+  test_join<uint32_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for uint32_t", "[cpu][join][uint32_t][avx2][zero_key]") {
+  test_join<uint32_t, tsl::avx2, true>();
+}
 
-    // simple merge
-    builder1.merge(builder2);
+TEST_CASE("Join for uint16_t", "[cpu][join][uint16_t][avx2]") {
+  test_join<uint16_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for uint16_t", "[cpu][join][uint16_t][avx2][zero_key]") {
+  test_join<uint16_t, tsl::avx2, true>();
+}
 
-    // probe phase
-    size_t join_result = 0;
-    join_result = prober1(join_result_id_a, join_result_id_b, column_to_join_b.cbegin(), column_to_join_b.cend());
+TEST_CASE("Join for uint8_t", "[cpu][join][uint8_t][avx2]") {
+  test_join<uint8_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for uint8_t", "[cpu][join][uint8_t][avx2][zero_key]") {
+  test_join<uint8_t, tsl::avx2, true>();
+}
 
-    const auto t_end = std::chrono::high_resolution_clock::now();
+TEST_CASE("Join for int64_t", "[cpu][join][int64_t][avx2]") {
+  test_join<int64_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for int64_t", "[cpu][join][int64_t][avx2][zero_key]") {
+  test_join<int64_t, tsl::avx2, true>();
+}
 
-    bool all_found = true;
-    bool wrong_result = false;
+TEST_CASE("Join for int32_t", "[cpu][join][int32_t][avx2]") {
+  test_join<int32_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for int32_t", "[cpu][join][int32_t][avx2][zero_key]") {
+  test_join<int32_t, tsl::avx2, true>();
+}
 
-    result_checker<base_t>(all_found, wrong_result, column_to_join_a, DATA_ELEMENT_COUNT_A, column_to_join_b,
-                           DATA_ELEMENT_COUNT_B, join_result_id_a, join_result_id_b, join_result, max_findable);
+TEST_CASE("Join for int16_t", "[cpu][join][int16_t][avx2]") {
+  test_join<int16_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for int16_t", "[cpu][join][int16_t][avx2][zero_key]") {
+  test_join<int16_t, tsl::avx2, true>();
+}
 
-    REQUIRE(all_found);
-    REQUIRE(!wrong_result);
-
-    const auto bench_us = std::chrono::duration_cast<std::chrono::microseconds>(t_end - t_start).count();
-    if (tuddbs::bench_timings.contains(1)) {
-      tuddbs::bench_timings[1] += bench_us;
-    } else {
-      tuddbs::bench_timings[1] = bench_us;
-    }
-
-    join_deleter(join_result_id_a);
-    join_deleter(join_result_id_b);
-  }
-
-  join_deleter(raw_data);
-  tuddbs::print_timings(BENCHMARK_ITERATIONS);
-  tuddbs::bench_timings.clear();
+TEST_CASE("Join for int8_t", "[cpu][join][int8_t][avx2]") {
+  test_join<int8_t, tsl::avx2, false>();
+}
+TEST_CASE("Join for int8_t", "[cpu][join][int8_t][avx2][zero_key]") {
+  test_join<int8_t, tsl::avx2, true>();
 }
