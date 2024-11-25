@@ -170,15 +170,16 @@ namespace tuddbs {
             bucket_used = tsl::loadu<SimdStyle, Idof>(m_used_bucket_sink + lookup_position);
           }
 
-          auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
+          // auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
           auto const empty_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(bucket_used, empty_reg);
-          auto const key_found = tsl::mask_binary_and<SimdStyle, Idof>(
-            key_found_mask, tsl::mask_binary_not<SimdStyle, Idof>(empty_found_mask));
+          // auto const key_found = tsl::mask_binary_and<SimdStyle, Idof>(
+            // key_found_mask, tsl::mask_binary_not<SimdStyle, Idof>(empty_found_mask));
 
-          if (tsl::nequal<SimdStyle, Idof>(key_found, all_false_mask)) {  // key found
-            auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found);
-            return std::make_pair(lookup_position + found_position, true);
-          } else if (tsl::nequal<SimdStyle, Idof>(empty_found_mask, all_false_mask)) {  // empty place found
+          // if (tsl::nequal<SimdStyle, Idof>(key_found, all_false_mask)) {  // key found
+            // auto const found_position = tsl::tzc<SimdStyle, Idof>(key_found);
+            // return std::make_pair(lookup_position + found_position, true);
+          // } else 
+          if (tsl::nequal<SimdStyle, Idof>(empty_found_mask, all_false_mask)) {  // empty place found
             auto const found_position = tsl::tzc<SimdStyle, Idof>(empty_found_mask);
             return std::make_pair(lookup_position + found_position, false);
           } else {  // move to the next probing location
@@ -240,6 +241,8 @@ namespace tuddbs {
       auto lookup_position = probe_position(key);
 
       insert(key, position, lookup_position.first);
+      auto xxx = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position.first);
+      auto yyy = tsl::loadu<SimdStyle, Idof>(m_original_positions_sink + lookup_position.first);
     }
 
    public:
@@ -250,10 +253,15 @@ namespace tuddbs {
       auto const end = iter_end(p_data, p_end);
       auto iter = p_data;
       size_t insertion_count = 0;
+      auto xxx = 0;
       for (; p_data != end && m_used_bucket_count < m_bucket_count; ++p_data, ++start_position) {
         auto key = *p_data;
+        if ((key == 48797) && (xxx == 15346)){
+          std::cout << "NOW" << std::endl;
+        }
         single_insert(key, start_position);
         insertion_count++;
+        ++xxx;
       }
       return insertion_count;
     }
