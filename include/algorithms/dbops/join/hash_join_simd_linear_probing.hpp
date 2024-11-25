@@ -241,8 +241,6 @@ namespace tuddbs {
       auto lookup_position = probe_position(key);
 
       insert(key, position, lookup_position.first);
-      auto xxx = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position.first);
-      auto yyy = tsl::loadu<SimdStyle, Idof>(m_original_positions_sink + lookup_position.first);
     }
 
    public:
@@ -253,15 +251,10 @@ namespace tuddbs {
       auto const end = iter_end(p_data, p_end);
       auto iter = p_data;
       size_t insertion_count = 0;
-      auto xxx = 0;
       for (; p_data != end && m_used_bucket_count < m_bucket_count; ++p_data, ++start_position) {
         auto key = *p_data;
-        if ((key == 48797) && (xxx == 15346)){
-          std::cout << "NOW" << std::endl;
-        }
         single_insert(key, start_position);
         insertion_count++;
-        ++xxx;
       }
       return insertion_count;
     }
