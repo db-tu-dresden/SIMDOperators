@@ -35,6 +35,7 @@
 #include "algorithms/dbops/sort/sort_utils.hpp"
 #include "algorithms/utils/hinting.hpp"
 #include "tsl.hpp"
+
 namespace tuddbs {
   template <tsl::VectorProcessingStyle _SimdStyle, TSL_SORT_ORDER SortOrderT>
   class Sort {
