@@ -12,7 +12,6 @@
 #include <random>
 
 #include "algorithms/dbops/sort/sort_utils.hpp"
-#include "tslintrin.hpp"
 
 const static size_t global_max_seeds = 2;
 const static size_t global_max_repetitions = 3;
@@ -78,7 +77,7 @@ template <class SimdStyle, typename T = SimdStyle::base_type>
 void dispatch_type(const size_t max_seeds, const size_t max_repetitions) {
   std::cout << "Running " << tsl::type_name<SimdStyle>() << "..." << std::endl;
   // Increase the tested data size from 512 Byte to 128 MiB (last measured boundary)
-  std::vector<size_t> sizes{256, 16 * 1024, 16 * 1024 * 1024};
+  std::vector<size_t> sizes{256, 16 * 1024, 16 * 1024 * 1024, 128ul * 1024ul * 1024ul};
   for (auto size_B : sizes) {
     std::cout << "\t" << size_B << " Byte" << std::endl;
     const size_t array_size_B = size_B;

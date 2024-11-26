@@ -28,13 +28,13 @@
 #include <climits>
 #include <cstddef>
 #include <iterable.hpp>
-#include <tslintrin.hpp>
 #include <tuple>
 #include <type_traits>
 
 #include "algorithms/dbops/dbops_hints.hpp"
 #include "algorithms/dbops/sort/sort_utils.hpp"
 #include "algorithms/utils/hinting.hpp"
+#include "tsl.hpp"
 namespace tuddbs {
   template <tsl::VectorProcessingStyle _SimdStyle, TSL_SORT_ORDER SortOrderT>
   class Sort {
