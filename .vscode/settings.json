@@ -59,7 +59,8 @@
     "unordered_set": "cpp",
     "regex": "cpp",
     "bitset": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "charconv": "cpp"
   },
   "cmake.options.statusBarVisibility": "visible",
   "C_Cpp.default.compilerPath": "/usr/bin/g++"
