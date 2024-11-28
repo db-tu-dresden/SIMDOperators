@@ -29,10 +29,11 @@
 namespace tuddbs {
 
   namespace hints {
-    namespace sort_indirect {
-      struct inplace {};
-      struct gather {};
-    }  // namespace sort_indirect
+    namespace sort {
+      struct direct {};
+      struct indirect_inplace {};
+      struct indirect_gather {};
+    }  // namespace sort
   }  // namespace hints
 }  // namespace tuddbs
 

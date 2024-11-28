@@ -38,7 +38,7 @@
 
 namespace tuddbs {
   template <tsl::VectorProcessingStyle _SimdStyle, TSL_SORT_ORDER SortOrderT>
-  class Sort {
+  class SingleColumnSortDirect {
    public:
     using SimdStyle = _SimdStyle;
     using DataT = SimdStyle::base_type;
@@ -47,7 +47,9 @@ namespace tuddbs {
     DataT* m_data;
 
    public:
-    explicit Sort(SimdOpsIterable auto p_data) : m_data{p_data} {}
+    explicit SingleColumnSortDirect(SimdOpsIterable auto p_data) : m_data{p_data} {}
+    explicit SingleColumnSortDirect(SimdOpsIterable auto p_data, [[maybe_unused]] SimdOpsIterable auto p_idx)
+      : m_data{p_data} {}
 
     auto operator()(const size_t left, const size_t right) {
       if ((right - left) < (4 * 64)) {

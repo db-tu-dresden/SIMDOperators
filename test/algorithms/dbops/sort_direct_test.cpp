@@ -1,6 +1,5 @@
 
-#include "algorithms/dbops/sort/sort_direct.hpp"
-
+// #include "algorithms/dbops/sort/sort_direct.hpp"
 #include <algorithm>
 #include <cassert>
 #include <catch2/catch_test_macros.hpp>
@@ -11,10 +10,11 @@
 #include <iostream>
 #include <random>
 
+#include "algorithms/dbops/sort/sort.hpp"
 #include "algorithms/dbops/sort/sort_utils.hpp"
 
-const static size_t global_max_seeds = 2;
-const static size_t global_max_repetitions = 3;
+const static size_t global_max_seeds = 4;
+const static size_t global_max_repetitions = 1;
 
 template <class D>
 using uniform_distribution = typename std::conditional_t<
@@ -49,7 +49,9 @@ ssize_t run_tsl(T* base, T* data, T* reference, const size_t array_element_count
     // Reset the state to the original unsorted data
     memcpy(data, base, array_size_B);
 
-    tuddbs::Sort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC> sorter(data);
+    using HS = tuddbs::OperatorHintSet<tuddbs::hints::sort::direct>;
+    using sort_proxy = tuddbs::SingleColumnSort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC, HS>;
+    typename sort_proxy::sorter_t sorter(data);
     sorter(0, array_element_count);
 
     // Compare our permutation to the std::sort reference and print debug output, if it does not match.
@@ -76,8 +78,9 @@ void run_std(T* base, T* data, const size_t array_element_count, const size_t ar
 template <class SimdStyle, typename T = SimdStyle::base_type>
 void dispatch_type(const size_t max_seeds, const size_t max_repetitions) {
   std::cout << "Running " << tsl::type_name<SimdStyle>() << "..." << std::endl;
-  // Increase the tested data size from 512 Byte to 128 MiB (last measured boundary)
-  std::vector<size_t> sizes{256, 16 * 1024, 16 * 1024 * 1024, 128ul * 1024ul * 1024ul};
+  // Increase the tested data size from 512 Byte to 32 MiB (last measured boundary)
+  // std::vector<size_t> sizes{256, 16 * 1024, 16 * 1024 * 1024, 32ul * 1024ul * 1024ul};
+  std::vector<size_t> sizes{256, 2 * 1024, 4 * 1024, 8 * 1024, 16 * 1024};
   for (auto size_B : sizes) {
     std::cout << "\t" << size_B << " Byte" << std::endl;
     const size_t array_size_B = size_B;

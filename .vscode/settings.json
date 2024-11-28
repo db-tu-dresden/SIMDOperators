@@ -60,7 +60,11 @@
     "regex": "cpp",
     "bitset": "cpp",
     "thread": "cpp",
-    "charconv": "cpp"
+    "charconv": "cpp",
+    "sort_indirect_gather": "cpp",
+    "format": "cpp",
+    "valarray": "cpp",
+    "text_encoding": "cpp"
   },
   "cmake.options.statusBarVisibility": "visible",
   "C_Cpp.default.compilerPath": "/usr/bin/g++"
