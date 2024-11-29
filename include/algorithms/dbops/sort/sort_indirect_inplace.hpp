@@ -146,7 +146,7 @@ namespace tuddbs {
 
     template <class SimdStyle, class IndexStyle, SORT_TYPE type, TSL_SORT_ORDER order,
               typename T = typename SimdStyle::base_type, typename U = typename IndexStyle::base_type>
-    inline void do_avx_sort_masked(T* data, U* indexes, const typename SimdStyle::register_type pivot_reg,
+    inline void do_tsl_sort_masked(T* data, U* indexes, const typename SimdStyle::register_type pivot_reg,
                                    const typename SimdStyle::register_type val_reg,
                                    const idx_arr_t<SimdStyle, IndexStyle> idx_tmparr, ssize_t& l_w, ssize_t& r_w,
                                    const typename SimdStyle::imask_type valid) {
