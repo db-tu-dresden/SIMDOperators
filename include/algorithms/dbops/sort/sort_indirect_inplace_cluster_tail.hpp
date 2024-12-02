@@ -46,6 +46,9 @@ namespace tuddbs {
     static_assert(has_hints_mutual_excluding<HintSet, std::tuple<hints::sort::indirect_inplace>,
                                              std::tuple<hints::sort::indirect_gather>>,
                   "Indirect sort can only be either inplace or gather, but both were given");
+    static_assert(has_hints_mutual_excluding<HintSet, std::tuple<hints::sort::tail_clustering>,
+                                             std::tuple<hints::sort::leaf_clustering>>,
+                  "Trying to instantiate tail clustering, but leaf clustering is also given or tail hint is missing.");
 
    public:
     using SimdStyle = _SimdStyle;
@@ -70,7 +73,8 @@ namespace tuddbs {
       }
 
       const DataT pivot = tuddbs::get_pivot_indirect(m_data, m_idx, left, right - 1);
-      [[maybe_unused]] const auto range = partition<SimdStyle, IndexStyle>(clusters, m_data, m_idx, left, right, pivot);
+      // We dont need the top level ClusteredRange, it is a recursion helper and  thus we intentionally discard it here.
+      static_cast<void>(partition<SimdStyle, IndexStyle>(clusters, m_data, m_idx, left, right, pivot));
     }
 
     std::deque<tuddbs::Cluster> getClusters() const { return clusters; }

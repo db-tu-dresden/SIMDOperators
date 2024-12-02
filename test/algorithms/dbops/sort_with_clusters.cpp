@@ -66,17 +66,32 @@ int main() {
   using HS_INLEAF =
     tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_inplace, tuddbs::hints::sort::leaf_clustering>;
   using HS_GATH = tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_gather>;
+  using HS_GATHTAIL =
+    tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_gather, tuddbs::hints::sort::tail_clustering>;
+  using HS_GATHLEAF =
+    tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_gather, tuddbs::hints::sort::leaf_clustering>;
 
-  using cluster_proxy_leaf =
+  using cluster_proxy_inplace_leaf =
     tuddbs::ClusteringSingleColumnSort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC, HS_INLEAF, IndexStyle>;
-  using cluster_proxy_tail =
+  using cluster_proxy_inplace_tail =
     tuddbs::ClusteringSingleColumnSort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC, HS_INTAIL, IndexStyle>;
 
+  using cluster_proxy_gather_leaf =
+    tuddbs::ClusteringSingleColumnSort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC, HS_GATHLEAF, IndexStyle>;
+  using cluster_proxy_gather_tail =
+    tuddbs::ClusteringSingleColumnSort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC, HS_GATHTAIL, IndexStyle>;
+
   std::cout << " == Inplace, Cluster on Leaf == " << std::endl;
-  sort<cluster_proxy_leaf::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
+  sort<cluster_proxy_inplace_leaf::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
 
   std::cout << " == Inplace, Cluster on Tail == " << std::endl;
-  sort<cluster_proxy_tail::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
+  sort<cluster_proxy_inplace_tail::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
+
+  std::cout << " == Gather, Cluster on Leaf == " << std::endl;
+  sort<cluster_proxy_gather_leaf::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
+
+  std::cout << " == Gather, Cluster on Tail == " << std::endl;
+  sort<cluster_proxy_gather_tail::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
 
   return 0;
 }

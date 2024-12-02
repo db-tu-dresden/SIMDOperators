@@ -45,6 +45,9 @@ namespace tuddbs {
     static_assert(has_hints_mutual_excluding<HintSet, std::tuple<hints::sort::indirect_inplace>,
                                              std::tuple<hints::sort::indirect_gather>>,
                   "Indirect sort can only be either inplace or gather, but both were given");
+    static_assert(has_hints_mutual_excluding<HintSet, std::tuple<hints::sort::leaf_clustering>,
+                                             std::tuple<hints::sort::tail_clustering>>,
+                  "Trying to instantiate leaf clustering, but tail clustering is also given or tail hint is missing.");
 
    public:
     using SimdStyle = _SimdStyle;

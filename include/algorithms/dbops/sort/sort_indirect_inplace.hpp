@@ -61,7 +61,6 @@ namespace tuddbs {
 
     auto operator()(const size_t left, const size_t right) {
       if ((right - left) < (4 * SimdStyle::vector_element_count())) {
-        std::cout << "Insertion Sort Fallback from " << left << " to " << right << std::endl;
         insertion_sort_fallback<SortOrderT>(m_data, m_idx, left, right);
         return;
       }
@@ -270,7 +269,7 @@ namespace tuddbs {
                                                                            idx_r_adv, left_w, right_w);
 
         /* Remainder */
-        do_avx_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+        do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
           data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, left_w, right_w, valid_mask);
       } else {
         while (left + SimdStyle::vector_element_count() <= right) {
@@ -319,7 +318,7 @@ namespace tuddbs {
                                                                              idx_r_adv, left_w, right_w);
 
           /* Remainder */
-          do_avx_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
             data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, left_w, right_w, valid_mask);
         } else {
           do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(data, indexes, pivot_vec, vals_l, idx_l,
@@ -390,7 +389,7 @@ namespace tuddbs {
                                                                              idx_r_adv, pivot_l_w, pivot_r_w);
 
           /* Remainder */
-          do_avx_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+          do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
             data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, pivot_l_w, pivot_r_w, valid_mask);
         } else {
           while (pivot_l + SimdStyle::vector_element_count() <= pivot_r) {
@@ -439,7 +438,7 @@ namespace tuddbs {
                                                                                idx_r_adv, pivot_l_w, pivot_r_w);
 
             /* Remainder */
-            do_avx_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
               data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, pivot_l_w, pivot_r_w, valid_mask);
           } else {
             do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(data, indexes, pivot_vec, vals_l, idx_l,
