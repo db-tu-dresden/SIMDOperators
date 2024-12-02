@@ -29,6 +29,8 @@
 #include "algorithms/dbops/sort/sort_direct.hpp"
 #include "algorithms/dbops/sort/sort_indirect_gather.hpp"
 #include "algorithms/dbops/sort/sort_indirect_inplace.hpp"
+#include "algorithms/dbops/sort/sort_indirect_inplace_cluster_leaf.hpp"
+#include "algorithms/dbops/sort/sort_indirect_inplace_cluster_tail.hpp"
 #include "algorithms/utils/hinting.hpp"
 #include "tsl.hpp"
 
@@ -36,10 +38,6 @@ namespace tuddbs {
   template <tsl::VectorProcessingStyle _SimdStyle, TSL_SORT_ORDER SortOrderT = TSL_SORT_ORDER::ASC,
             class HintSet = OperatorHintSet<hints::sort::direct>, tsl::VectorProcessingStyle _IndexStyle = _SimdStyle>
   struct SingleColumnSort {
-    // using sorter_t =
-    //   std::conditional_t<has_hints<HintSet, hints::sort::direct>, SingleColumnSortDirect<_SimdStyle, SortOrderT>,
-    //                      SingleColumnSortIndirectInplace<_SimdStyle, _IndexStyle, SortOrderT, HintSet>>;
-
     using sorter_t = std::conditional_t<
       has_hints<HintSet, hints::sort::direct>, SingleColumnSortDirect<_SimdStyle, SortOrderT>,
       std::conditional_t<
@@ -47,6 +45,18 @@ namespace tuddbs {
         SingleColumnSortIndirectInplace<_SimdStyle, _IndexStyle, SortOrderT, HintSet>,
         std::conditional_t<has_hints<HintSet, hints::sort::indirect_gather>,
                            SingleColumnSortIndirectGather<_SimdStyle, _IndexStyle, SortOrderT, HintSet>, void> > >;
+  };
+
+  template <tsl::VectorProcessingStyle _SimdStyle, TSL_SORT_ORDER SortOrderT = TSL_SORT_ORDER::ASC,
+            class HintSet = OperatorHintSet<hints::sort::indirect_inplace>,
+            tsl::VectorProcessingStyle _IndexStyle = _SimdStyle>
+  struct ClusteringSingleColumnSort {
+    using sorter_t = std::conditional_t<
+      has_hints<HintSet, hints::sort::indirect_inplace> && has_hints<HintSet, hints::sort::tail_clustering>,
+      TailClusteringSingleColumnSortIndirectInplace<_SimdStyle, _IndexStyle, SortOrderT, HintSet>,
+      std::conditional_t<
+        has_hints<HintSet, hints::sort::indirect_inplace> && has_hints<HintSet, hints::sort::leaf_clustering>,
+        LeafClusteringSingleColumnSortIndirectInplace<_SimdStyle, _IndexStyle, SortOrderT, HintSet>, void> >;
   };
 }  // namespace tuddbs
 

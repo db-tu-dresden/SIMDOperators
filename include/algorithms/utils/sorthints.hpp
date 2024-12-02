@@ -33,6 +33,8 @@ namespace tuddbs {
       struct direct {};
       struct indirect_inplace {};
       struct indirect_gather {};
+      struct tail_clustering {};
+      struct leaf_clustering {};
     }  // namespace sort
   }  // namespace hints
 }  // namespace tuddbs

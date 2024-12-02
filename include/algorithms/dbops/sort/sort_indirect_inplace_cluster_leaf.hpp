@@ -1,4 +1,3 @@
-
 // ------------------------------------------------------------------- //
 /*
    This file is part of the SimdOperators Project.
@@ -19,12 +18,12 @@
 // ------------------------------------------------------------------- //
 
 /**
- * @file sort_indirect_inplace_cluster_tail.hpp
+ * @file sort_indirect_inplace_cluster_leaf.hpp
  * @brief
  */
 
-#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SORT_SORT_INDIRECT_INPLACE_CLUSTER_TAIL_HPP
-#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SORT_SORT_INDIRECT_INPLACE_CLUSTER_TAIL_HPP
+#ifndef SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SORT_SORT_INDIRECT_INPLACE_CLUSTER_LEAF_HPP
+#define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SORT_SORT_INDIRECT_INPLACE_CLUSTER_LEAF_HPP
 
 #include <climits>
 #include <cstddef>
@@ -42,7 +41,7 @@
 namespace tuddbs {
   template <tsl::VectorProcessingStyle _SimdStyle, tsl::VectorProcessingStyle _IndexStyle, TSL_SORT_ORDER SortOrderT,
             class HintSet = OperatorHintSet<hints::sort::indirect_inplace>>
-  class TailClusteringSingleColumnSortIndirectInplace {
+  class LeafClusteringSingleColumnSortIndirectInplace {
     static_assert(has_hints_mutual_excluding<HintSet, std::tuple<hints::sort::indirect_inplace>,
                                              std::tuple<hints::sort::indirect_gather>>,
                   "Indirect sort can only be either inplace or gather, but both were given");
@@ -59,7 +58,7 @@ namespace tuddbs {
     std::deque<tuddbs::Cluster> clusters;
 
    public:
-    explicit TailClusteringSingleColumnSortIndirectInplace(SimdOpsIterable auto p_data, SimdOpsIterable auto p_idx)
+    explicit LeafClusteringSingleColumnSortIndirectInplace(SimdOpsIterable auto p_data, SimdOpsIterable auto p_idx)
       : m_data{p_data}, m_idx{p_idx}, clusters{} {}
 
     auto operator()(const size_t left, const size_t right) {
@@ -70,7 +69,7 @@ namespace tuddbs {
       }
 
       const DataT pivot = tuddbs::get_pivot_indirect(m_data, m_idx, left, right - 1);
-      [[maybe_unused]] const auto range = partition<SimdStyle, IndexStyle>(clusters, m_data, m_idx, left, right, pivot);
+      partition<SimdStyle, IndexStyle>(clusters, m_data, m_idx, left, right, pivot);
     }
 
     std::deque<tuddbs::Cluster> getClusters() const { return clusters; }
@@ -228,8 +227,7 @@ namespace tuddbs {
 
     template <class SimdStyle, class IndexStyle, typename T = typename SimdStyle::base_type,
               typename U = typename IndexStyle::base_type>
-    ClusteredRange partition(std::deque<Cluster>& cluster, T* data, U* indexes, ssize_t left, ssize_t right, T pivot,
-                             size_t level = 0) {
+    void partition(std::deque<Cluster>& cluster, T* data, U* indexes, ssize_t left, ssize_t right, T pivot) {
       static_assert(sizeof(T) <= sizeof(U), "The index type (U) must be at least as wide as the data type (T).");
       using data_reg_t = typename SimdStyle::register_type;
 
@@ -485,46 +483,24 @@ namespace tuddbs {
         }
       }
 
-      ClusteredRange left_range, right_range;
-      bool left_leaf = false;
-      bool right_leaf = false;
-
       /* -- Left Side -- */
       if ((left_w - left_start) < (4 * SimdStyle::vector_element_count())) {
         insertion_sort_fallback<SortOrderT>(data, indexes, left_start, left_w);
-        left_range = ClusteredRange{static_cast<size_t>(left_start), static_cast<size_t>(left_w)};
-        left_leaf = true;
+        detect_cluster(cluster, data, indexes, left_start, left_w);
       } else {
         const auto pivot_ls = get_pivot(data, left_start, left_w);
-        left_range = partition<SimdStyle, IndexStyle>(cluster, data, indexes, left_start, left_w, pivot_ls, level + 1);
+        partition<SimdStyle, IndexStyle>(cluster, data, indexes, left_start, left_w, pivot_ls);
       }
 
       /* -- Right Side -- */
       if ((right_start - pivot_r_w) < (4 * SimdStyle::vector_element_count())) {
         insertion_sort_fallback<SortOrderT>(data, indexes, right_w, right_start);
-        right_range = ClusteredRange{static_cast<size_t>(right_w), static_cast<size_t>(right_start)};
-        right_leaf = true;
+        detect_cluster(cluster, data, indexes, left_w, right_start);
       } else {
         const auto pivot_rs = get_pivot(data, pivot_r_w, right_start);
-        right_range =
-          partition<SimdStyle, IndexStyle>(cluster, data, indexes, pivot_r_w, right_start, pivot_rs, level + 1);
+        detect_cluster(cluster, data, indexes, left_w, pivot_r_w);
+        partition<SimdStyle, IndexStyle>(cluster, data, indexes, pivot_r_w, right_start, pivot_rs);
       }
-
-      if (left_leaf) {
-        if (right_leaf) {
-          detect_cluster(cluster, data, indexes, left_start, right_start);
-        } else {
-          detect_cluster(cluster, data, indexes, left_start, right_range.start);
-        }
-      } else {
-        if (right_leaf) {
-          detect_cluster(cluster, data, indexes, left_range.end, right_start);
-        } else {
-          detect_cluster(cluster, data, indexes, left_range.end, right_range.start);
-        }
-      }
-
-      return ClusteredRange{static_cast<size_t>(left_start), static_cast<size_t>(right_start)};
     }
   };
 };  // namespace tuddbs

@@ -31,6 +31,25 @@ namespace tuddbs {
   enum class TSL_SORT_ORDER { ASC, DESC };
   enum class SORT_TYPE { SORT_EQ, SORT_LT };
 
+  struct ClusteredRange {
+    size_t start;
+    size_t end;
+
+    ClusteredRange() : start{0}, end{0} {};
+    ClusteredRange(const size_t s, const size_t e) : start{s}, end{e} {};
+  };
+
+  struct Cluster {
+    size_t start;
+    size_t len;
+
+    Cluster(size_t s, size_t l) : start{s}, len{l} {}
+
+    bool operator<(const Cluster& other) const { return (this->start < other.start); }
+    bool operator==(const Cluster& other) const { return (this->start == other.start) && (this->len == other.len); }
+    bool operator!=(const Cluster& other) const { return !(*this == other); }
+  };
+
   // This is a magic number and might be changed
   const size_t Med9_threshold = 40;
 
