@@ -22,10 +22,11 @@ void fill(std::vector<uint64_t>& vec, const size_t seed, const size_t lo, const 
   std::generate(vec.begin(), vec.end(), gen);
 }
 
-int main() {
+template <class SorterT, class SimdStyle, class IndexStyle, class HintSet>
+void sort() {
   std::vector<uint64_t> base, data_arr, col2, col3;
 
-  const size_t elements = 128;
+  const size_t elements = 64;
   fill(data_arr, 13371337, 1, 5, elements);
   fill(col2, 13371338, 3, 7, elements);
   fill(col3, 13371339, 2, 9, elements);
@@ -36,17 +37,11 @@ int main() {
     idx.push_back(i);
   }
 
-  using SimdStyle = tsl::simd<uint64_t, tsl::avx512>;
-  using IndexStyle = tsl::simd<uint64_t, tsl::avx512>;
-  using HS_INPL = tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_inplace>;
-  using HS_GATH = tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_gather>;
-  using cluster_sort_t =
-    tuddbs::ClusteringSingleColumnSortIndirectInplace<SimdStyle, IndexStyle, tuddbs::TSL_SORT_ORDER::ASC, HS_INPL>;
-  cluster_sort_t clusterer(data_arr.data(), idx.data());
+  SorterT clusterer(data_arr.data(), idx.data());
   clusterer(0, elements);
   auto clusters = clusterer.getClusters();
 
-  tuddbs::ClusterSortIndirect<SimdStyle, IndexStyle, HS_GATH> mcol_sorter(idx.data(), &clusters);
+  tuddbs::ClusterSortIndirect<SimdStyle, IndexStyle, HintSet> mcol_sorter(idx.data(), &clusters);
 
   mcol_sorter(col2.data(), tuddbs::TSL_SORT_ORDER::ASC);
   mcol_sorter(col3.data(), tuddbs::TSL_SORT_ORDER::DESC);
@@ -61,6 +56,27 @@ int main() {
   print_arr(base, idx);
   print_arr(col2, idx);
   print_arr(col3, idx);
+}
+
+int main() {
+  using SimdStyle = tsl::simd<uint64_t, tsl::avx512>;
+  using IndexStyle = tsl::simd<uint64_t, tsl::avx512>;
+  using HS_INTAIL =
+    tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_inplace, tuddbs::hints::sort::tail_clustering>;
+  using HS_INLEAF =
+    tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_inplace, tuddbs::hints::sort::leaf_clustering>;
+  using HS_GATH = tuddbs::OperatorHintSet<tuddbs::hints::sort::indirect_gather>;
+
+  using cluster_proxy_leaf =
+    tuddbs::ClusteringSingleColumnSort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC, HS_INLEAF, IndexStyle>;
+  using cluster_proxy_tail =
+    tuddbs::ClusteringSingleColumnSort<SimdStyle, tuddbs::TSL_SORT_ORDER::ASC, HS_INTAIL, IndexStyle>;
+
+  std::cout << " == Inplace, Cluster on Leaf == " << std::endl;
+  sort<cluster_proxy_leaf::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
+
+  std::cout << " == Inplace, Cluster on Tail == " << std::endl;
+  sort<cluster_proxy_tail::sorter_t, SimdStyle, IndexStyle, HS_GATH>();
 
   return 0;
 }
