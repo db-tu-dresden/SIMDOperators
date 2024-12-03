@@ -81,7 +81,7 @@ namespace tuddbs {
        */
       const auto load_idx_arr = [](U const* memory) -> idx_arr_t<SimdStyle, IndexStyle> {
         idx_arr_t<SimdStyle, IndexStyle> idxs;
-#pragma unroll(idx_arr_len<SimdStyle, IndexStyle>)
+#pragma unroll(sort_inplace::idx_arr_len<SimdStyle, IndexStyle>)
         for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
           idxs[i] = memory[i];
         }

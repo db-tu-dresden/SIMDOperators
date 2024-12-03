@@ -32,6 +32,8 @@ namespace tuddbs {
   template <class S, class I>
   using idx_arr_t = std::array<typename I::base_type, S::vector_element_count()>;
 
+  
+
   /**
    * @brief Templated helper to make calling the comparison with TYPE a one-liner and increase readability
    *
