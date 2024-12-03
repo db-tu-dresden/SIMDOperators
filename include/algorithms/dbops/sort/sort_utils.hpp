@@ -56,6 +56,13 @@ namespace tuddbs {
     bool operator!=(const Cluster& other) const { return !(*this == other); }
   };
 
+  class SortState{};
+
+  struct ClusteredSortState: public SortState {
+    std::deque<std::size_t> clusters;
+    ClusteredSortState(): clusters{} {}
+  };
+
   /* Functions */
 
   template <typename T>

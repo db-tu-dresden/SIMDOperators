@@ -60,25 +60,26 @@ namespace tuddbs {
    private:
     DataT* m_data;
     IdxT* m_idx;
-    std::deque<tuddbs::Cluster> clusters;
+    ClusteredSortState cluster_state;
+    // std::deque<tuddbs::Cluster> clusters;
 
    public:
     explicit TailClusteringSingleColumnSortIndirectInplace(SimdOpsIterable auto p_data, SimdOpsIterable auto p_idx)
-      : m_data{p_data}, m_idx{p_idx}, clusters{} {}
+      : m_data{p_data}, m_idx{p_idx}, cluster_state{} {}
 
     auto operator()(const size_t left, const size_t right) {
       if ((right - left) < (4 * SimdStyle::vector_element_count())) {
         sort_inplace::insertion_sort_fallback<SortOrderT>(m_data, m_idx, left, right);
-        sort_inplace::detect_cluster(clusters, m_data, m_idx, left, right);
+        sort_inplace::detect_cluster(this->getClusters(), m_data, m_idx, left, right);
         return;
       }
 
       const DataT pivot = tuddbs::get_pivot_indirect(m_data, m_idx, left, right - 1);
       // We dont need the top level ClusteredRange, it is a recursion helper and  thus we intentionally discard it here.
-      static_cast<void>(partition<SimdStyle, IndexStyle>(clusters, m_data, m_idx, left, right, pivot));
+      static_cast<void>(partition<SimdStyle, IndexStyle>(this->getClusters(), m_data, m_idx, left, right, pivot));
     }
 
-    std::deque<tuddbs::Cluster> getClusters() const { return clusters; }
+    std::deque<tuddbs::Cluster>& getClusters() const { return cluster_state.clusters; }
 
    private:
     template <class SimdStyle, class IndexStyle, typename T = typename SimdStyle::base_type,

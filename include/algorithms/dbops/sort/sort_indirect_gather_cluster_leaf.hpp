@@ -77,7 +77,7 @@ namespace tuddbs {
       partition<SimdStyle, IndexStyle>(clusters, m_data, m_idx, left, right, pivot);
     }
 
-    std::deque<tuddbs::Cluster> getClusters() const { return clusters; }
+    std::deque<tuddbs::Cluster> & getClusters() const { return clusters; }
 
    private:
     template <class SimdStyle, class IndexStyle, typename T = typename SimdStyle::base_type,
