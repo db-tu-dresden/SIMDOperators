@@ -72,7 +72,6 @@ namespace tuddbs {
         gather_sort::detect_cluster(this->getClusters(), m_data, m_idx, left, right);
         return;
       }
-      std::cerr << "OJFOEIJOIJEFOIJWEOFIJW" << std::endl;
       const DataT pivot = tuddbs::get_pivot_indirect(m_data, m_idx, left, right - 1);
       static_cast<void>(gather_sort::partition<SimdStyle, IndexStyle, SortOrderT>(cluster_state, m_data, m_idx, left, right, pivot));
     }
