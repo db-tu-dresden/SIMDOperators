@@ -29,10 +29,6 @@
 #include <deque>
 
 namespace tuddbs {
-  /* Usings */
-  template <class S, class I>
-  using idx_arr_t = std::array<typename I::base_type, S::vector_element_count()>;
-
   /* Enums */
   enum class TSL_SORT_ORDER { ASC, DESC };
   enum class SORT_TYPE { SORT_EQ, SORT_LT };
@@ -85,16 +81,6 @@ namespace tuddbs {
                   median3(data, right - 2 * d, right - d, right));
   }
 
-  template <typename T>
-  T get_pivot(T* data, const size_t left, const size_t right) {
-    const size_t dist = right - left;
-    if (dist > Med9_threshold) {
-      return median9(data, left, right);
-    } else {
-      return median3(data, left, left + (dist / 2), right);
-    }
-  }
-
   template <typename data_t, typename index_t>
   data_t median3_indirect(data_t* data, index_t* indexes, const size_t a, const size_t b, const size_t c) {
     return median(data[indexes[a]], data[indexes[b]], data[indexes[c]]);
@@ -106,6 +92,16 @@ namespace tuddbs {
     return median(median3_indirect(data, indexes, left, left + d, left + 2 * d),
                   median3_indirect(data, indexes, left + 3 * d, left + 4 * d, left + 5 * d),
                   median3_indirect(data, indexes, right - 2 * d, right - d, right));
+  }
+
+  template <typename T>
+  T get_pivot(T* data, const size_t left, const size_t right) {
+    const size_t dist = right - left;
+    if (dist > Med9_threshold) {
+      return median9(data, left, right);
+    } else {
+      return median3(data, left, left + (dist / 2), right);
+    }
   }
 
   template <typename data_t, typename index_t>

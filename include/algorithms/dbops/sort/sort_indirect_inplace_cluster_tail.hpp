@@ -69,7 +69,7 @@ namespace tuddbs {
     auto operator()(const size_t left, const size_t right) {
       if ((right - left) < (4 * SimdStyle::vector_element_count())) {
         sort_inplace::insertion_sort_fallback<SortOrderT>(m_data, m_idx, left, right);
-        detect_cluster(clusters, m_data, m_idx, left, right);
+        sort_inplace::detect_cluster(clusters, m_data, m_idx, left, right);
         return;
       }
 
@@ -367,15 +367,15 @@ namespace tuddbs {
 
       if (left_leaf) {
         if (right_leaf) {
-          detect_cluster(cluster, data, indexes, left_start, right_start);
+          sort_inplace::detect_cluster(cluster, data, indexes, left_start, right_start);
         } else {
-          detect_cluster(cluster, data, indexes, left_start, right_range.start);
+          sort_inplace::detect_cluster(cluster, data, indexes, left_start, right_range.start);
         }
       } else {
         if (right_leaf) {
-          detect_cluster(cluster, data, indexes, left_range.end, right_start);
+          sort_inplace::detect_cluster(cluster, data, indexes, left_range.end, right_start);
         } else {
-          detect_cluster(cluster, data, indexes, left_range.end, right_range.start);
+          sort_inplace::detect_cluster(cluster, data, indexes, left_range.end, right_range.start);
         }
       }
 

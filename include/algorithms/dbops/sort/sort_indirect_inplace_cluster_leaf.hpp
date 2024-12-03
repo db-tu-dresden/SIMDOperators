@@ -68,7 +68,7 @@ namespace tuddbs {
     auto operator()(const size_t left, const size_t right) {
       if ((right - left) < (4 * SimdStyle::vector_element_count())) {
         sort_inplace::insertion_sort_fallback<SortOrderT>(m_data, m_idx, left, right);
-        detect_cluster(clusters, m_data, m_idx, left, right);
+        sort_inplace::detect_cluster(clusters, m_data, m_idx, left, right);
         return;
       }
 
@@ -340,7 +340,7 @@ namespace tuddbs {
       /* -- Left Side -- */
       if ((left_w - left_start) < (4 * SimdStyle::vector_element_count())) {
         sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, left_start, left_w);
-        detect_cluster(cluster, data, indexes, left_start, left_w);
+        sort_inplace::detect_cluster(cluster, data, indexes, left_start, left_w);
       } else {
         const auto pivot_ls = get_pivot(data, left_start, left_w);
         partition<SimdStyle, IndexStyle>(cluster, data, indexes, left_start, left_w, pivot_ls);
@@ -349,10 +349,10 @@ namespace tuddbs {
       /* -- Right Side -- */
       if ((right_start - pivot_r_w) < (4 * SimdStyle::vector_element_count())) {
         sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, right_w, right_start);
-        detect_cluster(cluster, data, indexes, left_w, right_start);
+        sort_inplace::detect_cluster(cluster, data, indexes, left_w, right_start);
       } else {
         const auto pivot_rs = get_pivot(data, pivot_r_w, right_start);
-        detect_cluster(cluster, data, indexes, left_w, pivot_r_w);
+        sort_inplace::detect_cluster(cluster, data, indexes, left_w, pivot_r_w);
         partition<SimdStyle, IndexStyle>(cluster, data, indexes, pivot_r_w, right_start, pivot_rs);
       }
     }

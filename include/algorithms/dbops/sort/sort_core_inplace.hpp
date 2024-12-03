@@ -30,6 +30,31 @@
 
 namespace tuddbs {
   namespace sort_inplace {
+    template <typename T, typename U>
+    void detect_cluster(std::deque<Cluster>& clusters, T* data, U* indexes, size_t left, size_t right) {
+      T run_value = data[left];
+      size_t run_length = 1;
+      ++left;
+      if (left > right) {
+        return;
+      }
+      for (; left < right; ++left) {
+        const T current_value = data[left];
+        if (current_value != run_value) {
+          if (run_length > 1) {
+            clusters.emplace_back(left - run_length, run_length);
+          }
+          run_length = 1;
+          run_value = current_value;
+        } else {
+          ++run_length;
+        }
+      }
+      if (run_length > 1) {
+        clusters.emplace_back(left - run_length, run_length);
+      }
+    }
+
     template <TSL_SORT_ORDER order, typename T, typename U>
     void insertion_sort_fallback(T* data, U* indexes, const ssize_t left_boundary, const ssize_t right_boundary) {
       const size_t idxs_count = (right_boundary - left_boundary);
