@@ -55,10 +55,10 @@ namespace tuddbs {
    private:
     DataT* m_data;
     IdxT* m_idx;
-
+    DefaultSortState cluster_state;
    public:
     explicit SingleColumnSortIndirectInplace(SimdOpsIterable auto p_data, SimdOpsIterable auto p_idx)
-      : m_data{p_data}, m_idx{p_idx} {}
+      : m_data{p_data}, m_idx{p_idx}, cluster_state{} {}
 
     auto operator()(const size_t left, const size_t right) {
       if ((right - left) < (4 * SimdStyle::vector_element_count())) {
@@ -66,7 +66,7 @@ namespace tuddbs {
         return;
       }
       const DataT pivot = tuddbs::get_pivot_indirect(m_data, m_idx, left, right - 1);
-      partition<SimdStyle, IndexStyle>(m_data, m_idx, left, right, pivot);
+      sort_inplace::partition<SimdStyle, IndexStyle, SortOrderT>(cluster_state, m_data, m_idx, left, right, pivot);
     }
 
    private:

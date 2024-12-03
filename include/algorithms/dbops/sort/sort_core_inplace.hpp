@@ -94,7 +94,7 @@ namespace tuddbs {
     template <class SimdStyle, class IndexStyle, typename U = typename IndexStyle::base_type>
     inline void compress_store_index_array(typename SimdStyle::imask_type full_mask, U* indexes,
                                            const idx_arr_t<SimdStyle, IndexStyle> idx_tmparr) {
-#pragma unroll(idx_arr_len<SimdStyle, IndexStyle>)
+      #pragma unroll(idx_arr_len<SimdStyle, IndexStyle>)
       for (size_t i = 0; i < idx_arr_len<SimdStyle, IndexStyle>; ++i) {
         /**
          * No binary masking necessary, as we guarantee that the IndexStyle::base_type is equally sized or wider
@@ -152,6 +152,344 @@ namespace tuddbs {
       r_w -= nb_high;
       tsl::compress_store<SimdStyle>(mask_gt, &data[r_w], val_reg);
       compress_store_index_array<SimdStyle, IndexStyle>(mask_gt, &indexes[r_w], idx_tmparr);
+    }
+
+    template <class SimdStyle, class IndexStyle, TSL_SORT_ORDER SortOrderT, typename T = typename SimdStyle::base_type,
+              typename U = typename IndexStyle::base_type, class SortStateT = DefaultSortState>
+    auto partition(SortStateT & state, T* data, U* indexes, ssize_t left, ssize_t right, T pivot, size_t level = 0) 
+    -> std::conditional_t<std::is_same_v<SortStateT, TailClusteredSortState>, ClusteredRange, void> {
+        static_assert(sizeof(T) <= sizeof(U), "The index type (U) must be at least as wide as the data type (T).");
+
+      using data_reg_t = typename SimdStyle::register_type;
+
+      /* For now we assume that IndexStyle will use a wider or equally sized type than SimdStyle for the underlying data
+       */
+      const auto load_idx_arr = [](U const* memory) -> idx_arr_t<SimdStyle, IndexStyle> {
+        idx_arr_t<SimdStyle, IndexStyle> idxs;
+        #pragma unroll(sort_inplace::idx_arr_len<SimdStyle, IndexStyle>)
+        for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
+          idxs[i] = memory[i];
+        }
+        return idxs;
+      };
+
+      const ssize_t left_start = left;
+      const ssize_t right_start = right;
+
+      const auto pivot_vec = tsl::set1<SimdStyle>(pivot);
+      ssize_t left_w = left;
+      ssize_t right_w = right;
+
+      /* Load data and Index from left side */
+      // First register
+      data_reg_t vals_l = tsl::loadu<SimdStyle>(&data[left]);
+      idx_arr_t<SimdStyle, IndexStyle> idx_l = load_idx_arr(&indexes[left]);
+      left += SimdStyle::vector_element_count();
+
+      // Preload second register
+      data_reg_t vals_l_adv = tsl::loadu<SimdStyle>(&data[left]);
+      idx_arr_t<SimdStyle, IndexStyle> idx_l_adv = load_idx_arr(&indexes[left]);
+      left += SimdStyle::vector_element_count();
+
+      /* Load data and Index from right side */
+      // First register
+      right -= SimdStyle::vector_element_count();
+      data_reg_t vals_r = tsl::loadu<SimdStyle>(&data[right]);
+      idx_arr_t<SimdStyle, IndexStyle> idx_r = load_idx_arr(&indexes[right]);
+
+      // Preload second register
+      right -= SimdStyle::vector_element_count();
+      data_reg_t vals_r_adv = tsl::loadu<SimdStyle>(&data[right]);
+      idx_arr_t<SimdStyle, IndexStyle> idx_r_adv = load_idx_arr(&indexes[right]);
+
+      /* Working copies */
+      data_reg_t vals;
+      idx_arr_t<SimdStyle, IndexStyle> idxs;
+
+      if (left == right) {
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_l, idx_l, left_w, right_w);
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_l_adv, idx_l_adv, left_w, right_w);
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_r, idx_r, left_w, right_w);
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_r_adv, idx_r_adv, left_w, right_w);
+      } else if (left + SimdStyle::vector_element_count() > right) {
+        const typename SimdStyle::imask_type valid_mask = ((1ull << (right - left)) - 1) & (-1ull >> 1);
+        const data_reg_t remainder_val_vec = tsl::loadu<SimdStyle>(&data[left]);
+        const idx_arr_t<SimdStyle, IndexStyle> remainder_idx_vec = load_idx_arr(&indexes[left]);
+
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_l, idx_l, left_w, right_w);
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_l_adv, idx_l_adv, left_w, right_w);
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_r, idx_r, left_w, right_w);
+        sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, vals_r_adv, idx_r_adv, left_w, right_w);
+
+        /* Remainder */
+        sort_inplace::do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+          data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, left_w, right_w, valid_mask);
+      } else {
+        while (left + SimdStyle::vector_element_count() <= right) {
+          const ssize_t left_con = (left - left_w);
+          const ssize_t right_con = (right_w - right);
+          if (left_con <= right_con) {
+            vals = vals_l;
+            idxs = idx_l;
+
+            vals_l = vals_l_adv;
+            idx_l = idx_l_adv;
+
+            vals_l_adv = tsl::loadu<SimdStyle>(&data[left]);
+            idx_l_adv = load_idx_arr(&indexes[left]);
+
+            left += SimdStyle::vector_element_count();
+          } else {
+            vals = vals_r;
+            idxs = idx_r;
+
+            vals_r = vals_r_adv;
+            idx_r = idx_r_adv;
+
+            right -= SimdStyle::vector_element_count();
+            vals_r_adv = tsl::loadu<SimdStyle>(&data[right]);
+            idx_r_adv = load_idx_arr(&indexes[right]);
+          }
+
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(data, indexes, pivot_vec,
+                                                                                           vals, idxs, left_w, right_w);
+        }
+
+        /* -- Cleanup Phase -- */
+        if ((left < right) && (left + SimdStyle::vector_element_count() > right)) {
+          const typename SimdStyle::imask_type valid_mask = ((1ull << (right - left)) - 1) & (-1ull >> 1);
+          const data_reg_t remainder_val_vec = tsl::loadu<SimdStyle>(&data[left]);
+          const idx_arr_t<SimdStyle, IndexStyle> remainder_idx_vec = load_idx_arr(&indexes[left]);
+
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_l, idx_l, left_w, right_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_l_adv, idx_l_adv, left_w, right_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_r, idx_r, left_w, right_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_r_adv, idx_r_adv, left_w, right_w);
+
+          /* Remainder */
+          sort_inplace::do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, left_w, right_w, valid_mask);
+        } else {
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_l, idx_l, left_w, right_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_l_adv, idx_l_adv, left_w, right_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_r, idx_r, left_w, right_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
+            data, indexes, pivot_vec, vals_r_adv, idx_r_adv, left_w, right_w);
+        }
+      }
+
+      /* Start partitioning the right side into [ values == PIVOT | values > Pivot ] */
+      ssize_t pivot_l = left_w;
+      ssize_t pivot_l_w = left_w;
+
+      ssize_t pivot_r = right_start;
+      ssize_t pivot_r_w = right_start;
+      if ((pivot_r - pivot_l) < 4 * SimdStyle::vector_element_count()) {
+        /* Data too small to fit in 4 registers */
+        sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, pivot_l, pivot_r);
+
+        for (size_t i = pivot_l; i < right_start; ++i) {
+          if (data[i] > pivot) {
+            pivot_r_w = i;
+            break;
+          }
+        }
+      } else {
+        vals_l = tsl::loadu<SimdStyle>(&data[pivot_l]);
+        idx_l = load_idx_arr(&indexes[pivot_l]);
+        pivot_l += SimdStyle::vector_element_count();
+
+        vals_l_adv = tsl::loadu<SimdStyle>(&data[pivot_l]);
+        idx_l_adv = load_idx_arr(&indexes[pivot_l]);
+        pivot_l += SimdStyle::vector_element_count();
+
+        pivot_r -= SimdStyle::vector_element_count();
+        vals_r = tsl::loadu<SimdStyle>(&data[pivot_r]);
+        idx_r = load_idx_arr(&indexes[pivot_r]);
+
+        pivot_r -= SimdStyle::vector_element_count();
+        vals_r_adv = tsl::loadu<SimdStyle>(&data[pivot_r]);
+        idx_r_adv = load_idx_arr(&indexes[pivot_r]);
+
+        if (pivot_l == pivot_r) {
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_l, idx_l, pivot_l_w, pivot_r_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_l_adv, idx_l_adv, pivot_l_w, pivot_r_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_r, idx_r, pivot_l_w, pivot_r_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_r_adv, idx_r_adv, pivot_l_w, pivot_r_w);
+        } else if (pivot_l + SimdStyle::vector_element_count() > pivot_r) {
+          const typename SimdStyle::imask_type valid_mask = ((1ull << (pivot_r - pivot_l)) - 1) & (-1ull >> 1);
+          const data_reg_t remainder_val_vec = tsl::loadu<SimdStyle>(&data[pivot_l]);
+          const idx_arr_t<SimdStyle, IndexStyle> remainder_idx_vec = load_idx_arr(&indexes[pivot_l]);
+
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_l, idx_l, pivot_l_w, pivot_r_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_l_adv, idx_l_adv, pivot_l_w, pivot_r_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_r, idx_r, pivot_l_w, pivot_r_w);
+          sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, vals_r_adv, idx_r_adv, pivot_l_w, pivot_r_w);
+
+          /* Remainder */
+          sort_inplace::do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+            data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, pivot_l_w, pivot_r_w, valid_mask);
+        } else {
+          while (pivot_l + SimdStyle::vector_element_count() <= pivot_r) {
+            const ssize_t left_con = (pivot_l - pivot_l_w);
+            const ssize_t right_con = (pivot_r_w - pivot_r);
+            if (left_con <= right_con) {
+              vals = vals_l;
+              idxs = idx_l;
+
+              vals_l = vals_l_adv;
+              idx_l = idx_l_adv;
+
+              vals_l_adv = tsl::loadu<SimdStyle>(&data[pivot_l]);
+              idx_l_adv = load_idx_arr(&indexes[pivot_l]);
+
+              pivot_l += SimdStyle::vector_element_count();
+            } else {
+              vals = vals_r;
+              idxs = idx_r;
+
+              vals_r = vals_r_adv;
+              idx_r = idx_r_adv;
+
+              pivot_r -= SimdStyle::vector_element_count();
+              vals_r_adv = tsl::loadu<SimdStyle>(&data[pivot_r]);
+              idx_r_adv = load_idx_arr(&indexes[pivot_r]);
+            }
+
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals, idxs, pivot_l_w, pivot_r_w);
+          }
+
+          /* -- Cleanup Phase -- */
+          if ((pivot_l < pivot_r) && (pivot_l + SimdStyle::vector_element_count() > pivot_r)) {
+            const typename SimdStyle::imask_type valid_mask = ((1ull << (pivot_r - pivot_l)) - 1) & (-1ull >> 1);
+            const data_reg_t remainder_val_vec = tsl::loadu<SimdStyle>(&data[pivot_l]);
+            const idx_arr_t<SimdStyle, IndexStyle> remainder_idx_vec = load_idx_arr(&indexes[pivot_l]);
+
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_l, idx_l, pivot_l_w, pivot_r_w);
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_l_adv, idx_l_adv, pivot_l_w, pivot_r_w);
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_r, idx_r, pivot_l_w, pivot_r_w);
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_r_adv, idx_r_adv, pivot_l_w, pivot_r_w);
+
+            /* Remainder */
+            sort_inplace::do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, pivot_l_w, pivot_r_w, valid_mask);
+          } else {
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_l, idx_l, pivot_l_w, pivot_r_w);
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_l_adv, idx_l_adv, pivot_l_w, pivot_r_w);
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_r, idx_r, pivot_l_w, pivot_r_w);
+            sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_EQ, SortOrderT>(
+              data, indexes, pivot_vec, vals_r_adv, idx_r_adv, pivot_l_w, pivot_r_w);
+          }
+        }
+      }
+
+      if constexpr (std::is_same_v<SortStateT, DefaultSortState>) {
+        /* -- Left Side -- */
+        const auto pivot_ls = get_pivot(data, left_start, left_w);
+        if ((left_w - left_start) < (4 * SimdStyle::vector_element_count())) {
+          sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, left_start, left_w);
+        } else {
+          partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, left_start, left_w, pivot_ls);
+        }
+
+        /* -- Right Side -- */
+        const auto pivot_rs = get_pivot(data, pivot_r_w, right_start);
+        if ((right_start - pivot_r_w) < (4 * SimdStyle::vector_element_count())) {
+          sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, right_w, right_start);
+        } else {
+          partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, pivot_r_w, right_start, pivot_rs);
+        }
+      } else if constexpr (std::is_same_v<SortStateT, LeafClusteredSortState>) {
+        /* -- Left Side -- */
+        if ((left_w - left_start) < (4 * SimdStyle::vector_element_count())) {
+          sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, left_start, left_w);
+          sort_inplace::detect_cluster(state.clusters, data, indexes, left_start, left_w);
+        } else {
+          const auto pivot_ls = get_pivot(data, left_start, left_w);
+          partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, left_start, left_w, pivot_ls);
+        }
+
+        /* -- Right Side -- */
+        if ((right_start - pivot_r_w) < (4 * SimdStyle::vector_element_count())) {
+          sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, right_w, right_start);
+          sort_inplace::detect_cluster(state.clusters, data, indexes, left_w, right_start);
+        } else {
+          const auto pivot_rs = get_pivot(data, pivot_r_w, right_start);
+          sort_inplace::detect_cluster(state.clusters, data, indexes, left_w, pivot_r_w);
+          partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, pivot_r_w, right_start, pivot_rs);
+        }
+      } else if constexpr (std::is_same_v<SortStateT, TailClusteredSortState>) {
+        ClusteredRange left_range, right_range;
+        bool left_leaf = false;
+        bool right_leaf = false;
+
+        /* -- Left Side -- */
+        if ((left_w - left_start) < (4 * SimdStyle::vector_element_count())) {
+          sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, left_start, left_w);
+          left_range = ClusteredRange{static_cast<size_t>(left_start), static_cast<size_t>(left_w)};
+          left_leaf = true;
+        } else {
+          const auto pivot_ls = get_pivot(data, left_start, left_w);
+          left_range = partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, left_start, left_w, pivot_ls, level + 1);
+        }
+
+        /* -- Right Side -- */
+        if ((right_start - pivot_r_w) < (4 * SimdStyle::vector_element_count())) {
+          sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, right_w, right_start);
+          right_range = ClusteredRange{static_cast<size_t>(right_w), static_cast<size_t>(right_start)};
+          right_leaf = true;
+        } else {
+          const auto pivot_rs = get_pivot(data, pivot_r_w, right_start);
+          right_range =
+            partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, pivot_r_w, right_start, pivot_rs, level + 1);
+        }
+
+        if (left_leaf) {
+          if (right_leaf) {
+            sort_inplace::detect_cluster(state.clusters, data, indexes, left_start, right_start);
+          } else {
+            sort_inplace::detect_cluster(state.clusters, data, indexes, left_start, right_range.start);
+          }
+        } else {
+          if (right_leaf) {
+            sort_inplace::detect_cluster(state.clusters, data, indexes, left_range.end, right_start);
+          } else {
+            sort_inplace::detect_cluster(state.clusters, data, indexes, left_range.end, right_range.start);
+          }
+        }
+        return ClusteredRange{static_cast<size_t>(left_start), static_cast<size_t>(right_start)};
+      }
     }
   }  // namespace sort_inplace
 }  // namespace tuddbs
