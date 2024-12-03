@@ -26,11 +26,21 @@
 #define SIMDOPS_INCLUDE_ALGORITHMS_DBOPS_SORT_SORT_UTILS_HPP
 
 #include <cstdint>
+#include <deque>
 
 namespace tuddbs {
+  /* Usings */
+  template <class S, class I>
+  using idx_arr_t = std::array<typename I::base_type, S::vector_element_count()>;
+
+  /* Enums */
   enum class TSL_SORT_ORDER { ASC, DESC };
   enum class SORT_TYPE { SORT_EQ, SORT_LT };
 
+  // This is a magic number and might be changed
+  const size_t Med9_threshold = 40;
+
+  /* Classes */
   struct ClusteredRange {
     size_t start;
     size_t end;
@@ -50,8 +60,7 @@ namespace tuddbs {
     bool operator!=(const Cluster& other) const { return !(*this == other); }
   };
 
-  // This is a magic number and might be changed
-  const size_t Med9_threshold = 40;
+  /* Functions */
 
   template <typename T>
   T median(T a, T b, T c) {

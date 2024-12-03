@@ -107,6 +107,12 @@ void dispatch_type(const size_t max_seeds, const size_t max_repetitions) {
 
   // Make sure the index type can hold the targeted max data size. If not, just use its maximum
   const size_t data_size_boundary = std::min(std::numeric_limits<IndexT>::max() * sizeof(IndexT), max_data_size);
+  if (tuddbs::has_hint<HintSet, tuddbs::hints::sort::indirect_inplace>) {
+    std::cout << "[Inplace] ";
+  }
+  if (tuddbs::has_hint<HintSet, tuddbs::hints::sort::indirect_gather>) {
+    std::cout << "[Gather] ";
+  }
   std::cout << "Running ProcStyle " << tsl::type_name<typename SimdStyle::target_extension>() << " | IdxStyle "
             << tsl::type_name<typename IndexStyle::target_extension>() << " with (" << tsl::type_name<DataT>() << "-"
             << tsl::type_name<IndexT>() << "). Upperbound fixed to " << data_size_boundary << " for "
@@ -1027,8 +1033,3 @@ TEST_CASE("Indirect Sort, Gather. f64-ui64, NEON", "[f64-ui64][neon][gather]") {
                                                                                       global_max_repetitions);
 }
 #endif
-
-// TEST_CASE("Indirect Sort, Gather", "[u32-ui32][avx512][gather]") {
-//   dispatch_type<tsl::simd<uint32_t, tsl::avx512>, tsl::simd<uint32_t, tsl::avx512>, HS_GATH>(global_max_seeds,
-//                                                                                              global_max_repetitions);
-// }
