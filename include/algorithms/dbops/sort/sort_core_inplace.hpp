@@ -489,6 +489,8 @@ namespace tuddbs {
           }
         }
         return ClusteredRange{static_cast<size_t>(left_start), static_cast<size_t>(right_start)};
+      } else {
+        static_assert(false, "SortStateT must be of type (DefaultSortSTate, LeafClusteredSortState, TailClusteredSortState)");
       }
     }
   }  // namespace sort_inplace

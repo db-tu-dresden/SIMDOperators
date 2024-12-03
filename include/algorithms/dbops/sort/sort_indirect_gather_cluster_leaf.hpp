@@ -60,24 +60,25 @@ namespace tuddbs {
    private:
     DataT* m_data;
     IdxT* m_idx;
-    std::deque<tuddbs::Cluster> clusters;
+    LeafClusteredSortState cluster_state;
+    // std::deque<tuddbs::Cluster> clusters;
 
    public:
     explicit LeafClusteringSingleColumnSortIndirectGather(SimdOpsIterable auto p_data, SimdOpsIterable auto p_idx)
-      : m_data{p_data}, m_idx{p_idx}, clusters{} {}
+      : m_data{p_data}, m_idx{p_idx}, cluster_state{} {}
 
     auto operator()(const size_t left, const size_t right) {
       if ((right - left) < (4 * SimdStyle::vector_element_count())) {
         gather_sort::insertion_sort_fallback<SortOrderT>(m_data, m_idx, left, right);
-        gather_sort::detect_cluster(clusters, m_data, m_idx, left, right);
+        gather_sort::detect_cluster(this->getClusters(), m_data, m_idx, left, right);
         return;
       }
 
       const DataT pivot = tuddbs::get_pivot_indirect(m_data, m_idx, left, right - 1);
-      partition<SimdStyle, IndexStyle>(clusters, m_data, m_idx, left, right, pivot);
+      gather_sort::partition<SimdStyle, IndexStyle, SortOrderT>(cluster_state, m_data, m_idx, left, right, pivot);
     }
 
-    std::deque<tuddbs::Cluster> & getClusters() { return clusters; }
+    std::deque<tuddbs::Cluster> & getClusters() { return cluster_state.clusters; }
 
    private:
     template <class SimdStyle, class IndexStyle, typename T = typename SimdStyle::base_type,
