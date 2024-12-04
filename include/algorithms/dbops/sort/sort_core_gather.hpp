@@ -244,10 +244,37 @@ namespace tuddbs {
       tsl::compress_store<IndexStyle>(mask_gt, &indexes[r_w], idx_reg);
     }
 
+    /**
+     * @brief Partitions the data and performans a recursive sort on the left and right side using gather operations
+     * (thus being indirect).
+     *
+     * @details ...FILL ME...
+     * The SortStateT is used to determine the final step of the partitioning function.
+     * If SortStateT is of type DefaultSortState, the function will recursively call itself on the left and right side.
+     * Otherwise, the function will detect clusters on the left and right side. Those clusters will be stored in the
+     * ClusteredSortState. The clusters are necessary for the multi-column sort. If SortStateT is of type
+     * TailClusteredSortState, the function will return a ClusteredRange, which contains the start and end index of the
+     * cluster.
+     *
+     * @tparam SimdStyle
+     * @tparam IndexStyle
+     * @tparam SortOrderT
+     * @tparam SimdStyle::base_type
+     * @tparam IndexStyle::base_type
+     * @tparam SortStateT
+     * @param state
+     * @param data
+     * @param indexes
+     * @param left
+     * @param right
+     * @param pivot
+     * @param level
+     * @return std::conditional_t<std::is_same_v<SortStateT, TailClusteredSortState>, ClusteredRange, void>
+     */
     template <class SimdStyle, class IndexStyle, TSL_SORT_ORDER SortOrderT, typename T = typename SimdStyle::base_type,
               typename U = typename IndexStyle::base_type, class SortStateT = DefaultSortState>
-    auto partition(SortStateT & state, T* data, U* indexes, ssize_t left, ssize_t right, T pivot, size_t level = 0) 
-    -> std::conditional_t<std::is_same_v<SortStateT, TailClusteredSortState>, ClusteredRange, void> {
+    auto partition(SortStateT& state, T* data, U* indexes, ssize_t left, ssize_t right, T pivot, size_t level = 0)
+      -> std::conditional_t<std::is_same_v<SortStateT, TailClusteredSortState>, ClusteredRange, void> {
       static_assert(sizeof(T) <= sizeof(U), "The index type (U) must be at least as wide as the data type (T).");
 
       using idx_reg_t = typename IndexStyle::register_type;
@@ -486,7 +513,7 @@ namespace tuddbs {
           const auto pivot_rs = get_pivot_indirect(data, indexes, pivot_r_w, right_start - 1);
           partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, pivot_r_w, right_start, pivot_rs);
         }
-      } else if constexpr (std::is_same_v<SortStateT, LeafClusteredSortState>) { 
+      } else if constexpr (std::is_same_v<SortStateT, LeafClusteredSortState>) {
         /* -- Left Side -- */
         if ((left_w - left_start) < (4 * IndexStyle::vector_element_count())) {
           gather_sort::insertion_sort_fallback<SortOrderT>(data, indexes, left_start, left_w);
@@ -527,7 +554,8 @@ namespace tuddbs {
           right_leaf = true;
         } else {
           const auto pivot_rs = get_pivot_indirect(data, indexes, pivot_r_w, right_start - 1);
-          right_range = partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, pivot_r_w, right_start, pivot_rs);
+          right_range =
+            partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, pivot_r_w, right_start, pivot_rs);
         }
 
         if (left_leaf) {
@@ -545,7 +573,8 @@ namespace tuddbs {
         }
         return ClusteredRange{static_cast<size_t>(left_start), static_cast<size_t>(right_start)};
       } else {
-        static_assert(false, "SortStateT must be of type (DefaultSortSTate, LeafClusteredSortState, TailClusteredSortState)");
+        static_assert(false,
+                      "SortStateT must be of type (DefaultSortSTate, LeafClusteredSortState, TailClusteredSortState)");
       }
     }
   }  // namespace gather_sort
