@@ -1,32 +1,47 @@
-# Add Catch2 as dependency
-Include(FetchContent)
+# create_test(
+#   TARGET_NAME select_test
+#   SRC_FILES algorithms/dbops/select_test.cpp
+#   INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+# )
 
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.3.2 # or a later release
+create_test(
+  TARGET_NAME groupby_test
+  SRC_FILES algorithms/dbops/groupby_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
 )
 
-FetchContent_MakeAvailable(Catch2)
+create_test(
+  TARGET_NAME groupby_sum_test
+  SRC_FILES algorithms/dbops/groupsum_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
 
+create_test(
+  TARGET_NAME join_test
+  SRC_FILES algorithms/dbops/join_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
 
+create_test(
+  TARGET_NAME sort_direct_test
+  SRC_FILES algorithms/dbops/sort_direct_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
 
-add_subdirectory(column_based)
+create_test(
+  TARGET_NAME sort_indirect_test
+  SRC_FILES algorithms/dbops/sort_indirect_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
 
-add_executable(simpleTest simpleTest.cpp)
-target_include_directories(simpleTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
-target_link_libraries(simpleTest tsl SIMDOperators)
-
-add_executable(operatorTest operatorTest.cpp)
-target_include_directories(operatorTest PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
-target_link_libraries(operatorTest tsl SIMDOperators Catch2::Catch2WithMain)
-
-
-
-add_executable(AllTests operatorTest.cpp)
-target_include_directories(AllTests PUBLIC ${TSL_INCLUDE_DIRECTORY} ${SIMDOperators_INCLUDE_DIRECTORY})
-target_link_libraries(AllTests tsl SIMDOperators Catch2::Catch2WithMain)
-
-
-message(STATUS "SIMDOperators_INCLUDE_DIRECTORY: ${SIMDOperators_INCLUDE_DIRECTORY}")
-message(STATUS "TSL_INCLUDE_DIRECTORY: ${TSL_INCLUDE_DIRECTORY}")
+create_test(
+  TARGET_NAME sort_indirect_clustered_test
+  SRC_FILES algorithms/dbops/sort_with_clusters.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)

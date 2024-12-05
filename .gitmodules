@@ -1,3 +1,6 @@
 [submodule "tools/tslgen"]
 	path = tools/tslgen
-	url = https://github.com/db-tu-dresden/TSL
+	url = git@github.com:db-tu-dresden/TSL.git
+[submodule "tools/Catch2"]
+	path = tools/Catch2
+	url = git@github.com:catchorg/Catch2.git

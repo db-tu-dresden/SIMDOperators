@@ -9,9 +9,9 @@
 
 `git submodule foreach --recursive git checkout main`
 
-3. Generate the TVL into libs/tvl (or execute `tools/bash/generate.sh`):
+3. Generate the TSL into libs/tsl (or execute `tools/bash/generate.sh`):
 
-`python3 tools/tvlgen/main.py --targets sse sse2 sse3 ssse3 sse4.1 sse4.2 avx avx2 --no-workaround-warnings -o ../../libs/tvl`
+`python3 tools/tslgen/main.py --targets sse sse2 sse3 ssse3 sse4.1 sse4.2 avx avx2 --no-workaround-warnings -o ../../libs/tsl`
 Change the targets as you like :). If you need a C++17 Version add `--no-concepts` to the call
 
 4. Build the sources (or execute `tools/bash/build.sh`)

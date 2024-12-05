@@ -7,4 +7,4 @@ else
 fi
 
 git submodule foreach --recursive git checkout main
-python3 $CPATH/tools/tvlgen/main.py --targets sse sse2 sse3 ssse3 sse4.1 sse4.2 avx avx2 --no-workaround-warnings -o ../../libs/tvl
+python3 $CPATH/tools/tslgen/main.py --targets sse sse2 sse3 ssse3 sse4.1 sse4.2 avx avx2 --no-workaround-warnings -o ../../libs/tsl
