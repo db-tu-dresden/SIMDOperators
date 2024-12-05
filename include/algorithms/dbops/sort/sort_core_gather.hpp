@@ -42,20 +42,10 @@ namespace tuddbs {
      */
     template <typename T, typename U>
     void detect_cluster(std::deque<Cluster>& clusters, const T* const data, U* indexes, size_t left, size_t right) {
-      T run_value;
+      T run_value = data[indexes[left]];
       size_t run_length = 1;
-      if (clusters.size() == 0) {
-        run_length = 1;
-        left = 0;
-        run_value = data[indexes[0]];
-      } else {
-        Cluster& previous_cluster = clusters.back();
-        left = previous_cluster.start + previous_cluster.len;
-        run_value = data[indexes[left]];
-        const T previous_run_value = data[indexes[previous_cluster.start]];
-      }
       ++left;
-      if (left >= right) {
+      if (left > right) {
         return;
       }
       for (; left < right; ++left) {
@@ -586,9 +576,9 @@ namespace tuddbs {
             gather_sort::detect_cluster(state.clusters, data, indexes, left_start, right_range.start);
           }
         } else {
-          if (right_leaf) {
+          if (right_leaf) {  // Right traversal, right leaf
             gather_sort::detect_cluster(state.clusters, data, indexes, left_range.end, right_start);
-          } else {
+          } else {  // Right traversal, left side, no leaf
             gather_sort::detect_cluster(state.clusters, data, indexes, left_range.end, right_range.start);
           }
         }
