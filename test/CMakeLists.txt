@@ -24,3 +24,24 @@ create_test(
   INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
   LIBRARIES pthread
 )
+
+create_test(
+  TARGET_NAME sort_direct_test
+  SRC_FILES algorithms/dbops/sort_direct_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
+
+create_test(
+  TARGET_NAME sort_indirect_test
+  SRC_FILES algorithms/dbops/sort_indirect_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
+
+create_test(
+  TARGET_NAME sort_indirect_clustered_test
+  SRC_FILES algorithms/dbops/sort_with_clusters.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)

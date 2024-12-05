@@ -59,7 +59,15 @@
     "unordered_set": "cpp",
     "regex": "cpp",
     "bitset": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "charconv": "cpp",
+    "sort_indirect_gather": "cpp",
+    "format": "cpp",
+    "valarray": "cpp",
+    "text_encoding": "cpp",
+    "climits": "cpp",
+    "iostream": "cpp"
   },
-  "cmake.options.statusBarVisibility": "visible"
+  "cmake.options.statusBarVisibility": "visible",
+  "C_Cpp.default.compilerPath": "/usr/bin/g++"
 }
