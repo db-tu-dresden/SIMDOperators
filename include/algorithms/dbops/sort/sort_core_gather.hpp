@@ -30,6 +30,16 @@
 
 namespace tuddbs {
   namespace gather_sort {
+    /**
+     * @brief Detect conitguous runs of the same value in a given range. Basically a run length encoding, stored as a
+     * Cluster struct, but maybe out of order. Data access is indirect into data through the index column.
+     *
+     * @param clusters A deque to pull and push runs from and to
+     * @param data The data column
+     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param left The leftmost index to sort in indexes
+     * @param right The rightmost index to sort in indexes
+     */
     template <typename T, typename U>
     void detect_cluster(std::deque<Cluster>& clusters, const T* const data, U* indexes, size_t left, size_t right) {
       T run_value;
@@ -81,7 +91,18 @@ namespace tuddbs {
       }
     }
 
-    // Called when there are less than 4 vector registers left
+    /**
+     * @brief The fallback sort implementation, whenever there is not enough data to leverage SIMDified
+     * sorting.
+     *
+     * @tparam order Ascending or Descending sort
+     * @tparam T Datatype of the column data
+     * @tparam U Datatype of the position list contained in indexes
+     * @param data The data column
+     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param left_boundary The leftmost index to sort in indexes
+     * @param right_boundary The rightmost index to sort in indexes
+     */
     template <TSL_SORT_ORDER order, typename T, typename U>
     void insertion_sort_fallback(T const* __restrict__ data, U* __restrict__ indexes, const ssize_t left_boundary,
                                  const ssize_t right_boundary) {
