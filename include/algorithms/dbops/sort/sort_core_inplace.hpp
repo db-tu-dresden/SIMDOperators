@@ -31,16 +31,16 @@
 namespace tuddbs {
   namespace sort_inplace {
     /**
-     * @brief Detect conitguous runs of the same value in a given range. Basically a run length encoding, stored as a
+     * @brief Detect contiguous runs of the same value in a given range. Basically, a run-length encoding, stored as a
      * Cluster struct, but maybe out of order.
      *
-     * @details The inplace variant sorts the index array indirectly, by sorting the data array first and applying this
-     * sort permutation to the index as well. Thus, we do not need to leverage indirect access through indxes into data
+     * @details The inplace variant sorts the index array indirectly by sorting the data array first and applying this
+     * sort permutation to the index as well. Thus, we do not need to leverage indirect access through indexes into data
      * at this point. The parameter is here for future compatibility.
      *
      * @param clusters A deque to pull and push runs from and to
      * @param data The data column
-     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param indexes The to-be-sorted column containing positions that point to values in data.
      * @param left The leftmost index to sort in indexes
      * @param right The rightmost index to sort in indexes
      */
@@ -78,7 +78,7 @@ namespace tuddbs {
      * @tparam T Datatype of the column data
      * @tparam U Datatype of the position list contained in indexes
      * @param data The data column
-     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param indexes The to-be-sorted column containing positions that point to values in data.
      * @param left_boundary The leftmost index to sort in indexes
      * @param right_boundary The rightmost index to sort in indexes
      */
@@ -131,7 +131,7 @@ namespace tuddbs {
       (I::vector_element_count() == 64) ? -1ull : (1ull << I::vector_element_count()) - 1;
 
     /**
-     * @brief Stores the valid entries of an index register, but takes differences between the data types of data and
+     * @brief Stores the valid entries of an index register but takes differences between the data types of data and
      * indexes into account.
      *
      * @tparam SimdStyle  S The SIMD processing style for the data column
@@ -156,7 +156,7 @@ namespace tuddbs {
         tsl::compress_store<IndexStyle>(idx_mask, indexes,
                                         tsl::loadu<IndexStyle>(&idx_tmparr[i * IndexStyle::vector_element_count()]));
         /**
-         * We always 'just' advance the indexes pointer by the amount of written elements, both for left and right
+         * We always 'just' advance the index pointer by the amount of written elements, both for left and right
          * side. That is, for left we always start at the 'first' write position. For right, we position the indexes
          * pointer at the leftmost position, since we know nb_high from the full_mask.
          */
@@ -170,7 +170,7 @@ namespace tuddbs {
      * @details Elements from the value register are compared against the pivot register for the less_than relation.
      * Every element truly smaller than pivot will be stored using a compress intrinsic to the left side of the result,
      * according to the left write pointer. For writing all greater_equal elements to the right side, we first must
-     * decrement the write pointer because cannot write "backwards".
+     * decrement the write pointer because we cannot write "backwards".
      *
      * @tparam SimdStyle  S The SIMD processing style for the data column
      * @tparam IndexStyle I The SIMD processing style for the index column
@@ -232,9 +232,9 @@ namespace tuddbs {
     }
 
     /**
-     * @brief Partitions the data and performans a recursive sort on the left and right side.
+     * @brief Partitions the data and performs a recursive sort on the left and right sides.
      *
-     * @details ...FILL ME...
+     * @details
      * The SortStateT is used to determine the final step of the partitioning function.
      * If SortStateT is of type DefaultSortState, the function will recursively call itself on the left and right side.
      * Otherwise, the function will detect clusters on the left and right side. Those clusters will be stored in the
