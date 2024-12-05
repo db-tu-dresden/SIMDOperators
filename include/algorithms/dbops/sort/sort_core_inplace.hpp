@@ -30,8 +30,23 @@
 
 namespace tuddbs {
   namespace sort_inplace {
+    /**
+     * @brief Detect conitguous runs of the same value in a given range. Basically a run length encoding, stored as a
+     * Cluster struct, but maybe out of order.
+     *
+     * @details The inplace variant sorts the index array indirectly, by sorting the data array first and applying this
+     * sort permutation to the index as well. Thus, we do not need to leverage indirect access through indxes into data
+     * at this point. The parameter is here for future compatibility.
+     *
+     * @param clusters A deque to pull and push runs from and to
+     * @param data The data column
+     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param left The leftmost index to sort in indexes
+     * @param right The rightmost index to sort in indexes
+     */
     template <typename T, typename U>
-    void detect_cluster(std::deque<Cluster>& clusters, T* data, U* indexes, size_t left, size_t right) {
+    void detect_cluster(std::deque<Cluster>& clusters, T* data, [[maybe_unused]] U* indexes, size_t left,
+                        size_t right) {
       T run_value = data[left];
       size_t run_length = 1;
       ++left;
@@ -55,6 +70,18 @@ namespace tuddbs {
       }
     }
 
+    /**
+     * @brief The fallback sort implementation, whenever there is not enough data to leverage SIMDified
+     * sorting.
+     *
+     * @tparam order Ascending or Descending sort
+     * @tparam T Datatype of the column data
+     * @tparam U Datatype of the position list contained in indexes
+     * @param data The data column
+     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param left_boundary The leftmost index to sort in indexes
+     * @param right_boundary The rightmost index to sort in indexes
+     */
     template <TSL_SORT_ORDER order, typename T, typename U>
     void insertion_sort_fallback(T* data, U* indexes, const ssize_t left_boundary, const ssize_t right_boundary) {
       const size_t idxs_count = (right_boundary - left_boundary);
@@ -84,13 +111,36 @@ namespace tuddbs {
       }
     };
 
+    /**
+     * @brief A templated helper to get the size of the index array helper as compile time constant.
+     *
+     * @tparam S The SIMD processing style for the data column
+     * @tparam I The SIMD processing style for the index column
+     */
     template <class S, class I>
     constexpr size_t idx_arr_len = sizeof(typename I::base_type) / sizeof(typename S::base_type);
 
+    /**
+     * @brief A templated helper to get the bit count in an index simd register lane
+     *
+     * @tparam S The SIMD processing style for the data column
+     * @tparam I The SIMD processing style for the index column
+     */
     template <class S, class I>
     constexpr size_t bits_per_idx_register =
       (I::vector_element_count() == 64) ? -1ull : (1ull << I::vector_element_count()) - 1;
 
+    /**
+     * @brief Stores the valid entries of an index register, but takes differences between the data types of data and
+     * indexes into account.
+     *
+     * @tparam SimdStyle  S The SIMD processing style for the data column
+     * @tparam IndexStyle I The SIMD processing style for the index column
+     * @tparam IndexStyle::base_type The data type of the positions in indexes
+     * @param full_mask The complete mask from the pivot comparison.
+     * @param indexes The position list to store
+     * @param idx_tmparr The loaded index positions, not a SIMD register but an array helper.
+     */
     template <class SimdStyle, class IndexStyle, typename U = typename IndexStyle::base_type>
     inline void compress_store_index_array(typename SimdStyle::imask_type full_mask, U* indexes,
                                            const idx_arr_t<SimdStyle, IndexStyle> idx_tmparr) {
@@ -114,6 +164,28 @@ namespace tuddbs {
       }
     }
 
+    /**
+     * @brief Compares a data SIMD register against a pivot element and stores the results accordingly.
+     *
+     * @details Elements from the value register are compared against the pivot register for the less_than relation.
+     * Every element truly smaller than pivot will be stored using a compress intrinsic to the left side of the result,
+     * according to the left write pointer. For writing all greater_equal elements to the right side, we first must
+     * decrement the write pointer because cannot write "backwards".
+     *
+     * @tparam SimdStyle  S The SIMD processing style for the data column
+     * @tparam IndexStyle I The SIMD processing style for the index column
+     * @tparam type
+     * @tparam order
+     * @tparam SimdStyle::base_type
+     * @tparam IndexStyle::base_type
+     * @param data The data column, used to indirectly sort indexes.
+     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param pivot_reg A SIMD register, that contains the current pivot element.
+     * @param val_reg A SIMD register, corresponding to SimdStyle, that contains a set of elements from data.
+     * @param idx_tmparr An std::array helper, that contains positions from indexes, that correspond to val_reg.
+     * @param l_w The left side write pointer.
+     * @param r_w The right side write pointer.
+     */
     template <class SimdStyle, class IndexStyle, SORT_TYPE type, TSL_SORT_ORDER order,
               typename T = typename SimdStyle::base_type, typename U = typename IndexStyle::base_type>
     inline void do_tsl_sort(T* data, U* indexes, const typename SimdStyle::register_type pivot_reg,
@@ -132,6 +204,11 @@ namespace tuddbs {
       compress_store_index_array<SimdStyle, IndexStyle>(static_cast<mask_t>(~mask_lt), &indexes[r_w], idx_tmparr);
     }
 
+    /**
+     * @brief A templated helper function for masking out invalid elements. Behaves the same as do_tsl_sort() otherwise.
+     *
+     * @param valid A bitmask indicating the valid elements in val_reg.
+     */
     template <class SimdStyle, class IndexStyle, SORT_TYPE type, TSL_SORT_ORDER order,
               typename T = typename SimdStyle::base_type, typename U = typename IndexStyle::base_type>
     inline void do_tsl_sort_masked(T* data, U* indexes, const typename SimdStyle::register_type pivot_reg,
@@ -202,6 +279,7 @@ namespace tuddbs {
       const ssize_t left_start = left;
       const ssize_t right_start = right;
 
+      // Broadcast the pivot element to a SIMD register
       const auto pivot_vec = tsl::set1<SimdStyle>(pivot);
       ssize_t left_w = left;
       ssize_t right_w = right;
@@ -212,7 +290,8 @@ namespace tuddbs {
       idx_arr_t<SimdStyle, IndexStyle> idx_l = load_idx_arr(&indexes[left]);
       left += SimdStyle::vector_element_count();
 
-      // Preload second register
+      // Preload second register. We must do that, because we need to preserve data in order to avoid accidently
+      // overwriting elements, which have not been sorted yet.
       data_reg_t vals_l_adv = tsl::loadu<SimdStyle>(&data[left]);
       idx_arr_t<SimdStyle, IndexStyle> idx_l_adv = load_idx_arr(&indexes[left]);
       left += SimdStyle::vector_element_count();
@@ -223,7 +302,8 @@ namespace tuddbs {
       data_reg_t vals_r = tsl::loadu<SimdStyle>(&data[right]);
       idx_arr_t<SimdStyle, IndexStyle> idx_r = load_idx_arr(&indexes[right]);
 
-      // Preload second register
+      // Preload second register. We must do that, because we need to preserve data in order to avoid accidently
+      // overwriting elements, which have not been sorted yet.
       right -= SimdStyle::vector_element_count();
       data_reg_t vals_r_adv = tsl::loadu<SimdStyle>(&data[right]);
       idx_arr_t<SimdStyle, IndexStyle> idx_r_adv = load_idx_arr(&indexes[right]);
@@ -232,6 +312,7 @@ namespace tuddbs {
       data_reg_t vals;
       idx_arr_t<SimdStyle, IndexStyle> idxs;
 
+      // We have exactly 4 Registers to sort and already preloaded them. Apply the sorting to all and be done with it.
       if (left == right) {
         sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
           data, indexes, pivot_vec, vals_l, idx_l, left_w, right_w);
@@ -242,6 +323,9 @@ namespace tuddbs {
         sort_inplace::do_tsl_sort<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
           data, indexes, pivot_vec, vals_r_adv, idx_r_adv, left_w, right_w);
       } else if (left + SimdStyle::vector_element_count() > right) {
+        // We have 4 preloaded registers, but some leftover elements, which do not fill up an entire register. Preserve
+        // the remainder, apply the sort to the preloaded elements. The preloaded remainder register contains elements,
+        // that were already preloaded before and must thus be masked as invalid.
         const typename SimdStyle::imask_type valid_mask = ((1ull << (right - left)) - 1) & (-1ull >> 1);
         const data_reg_t remainder_val_vec = tsl::loadu<SimdStyle>(&data[left]);
         const idx_arr_t<SimdStyle, IndexStyle> remainder_idx_vec = load_idx_arr(&indexes[left]);
@@ -259,6 +343,10 @@ namespace tuddbs {
         sort_inplace::do_tsl_sort_masked<SimdStyle, IndexStyle, SORT_TYPE::SORT_LT, SortOrderT>(
           data, indexes, pivot_vec, remainder_val_vec, remainder_idx_vec, left_w, right_w, valid_mask);
       } else {
+        // We preloaded 4 registers and there are more elements left than a single SIMD register can hold. After sorting
+        // a register, we check if we have to read from the left or right side of the array, depending on how many
+        // elements were written to either side. This part is iteratively repeated, until one of the previous corner
+        // cases appears during processing.
         while (left + SimdStyle::vector_element_count() <= right) {
           const ssize_t left_con = (left - left_w);
           const ssize_t right_con = (right_w - right);
@@ -290,6 +378,8 @@ namespace tuddbs {
         }
 
         /* -- Cleanup Phase -- */
+        // The two corner cases now can only be either exactly 4 registers are left to process or 4 registers and some
+        // remainder.
         if ((left < right) && (left + SimdStyle::vector_element_count() > right)) {
           const typename SimdStyle::imask_type valid_mask = ((1ull << (right - left)) - 1) & (-1ull >> 1);
           const data_reg_t remainder_val_vec = tsl::loadu<SimdStyle>(&data[left]);
@@ -318,6 +408,10 @@ namespace tuddbs {
             data, indexes, pivot_vec, vals_r_adv, idx_r_adv, left_w, right_w);
         }
       }
+
+      // Contrary to direct sort, we must preserve the indexes of all pivot elements and thus re-sort the right side of
+      // the partition. The algorithm is analogue to the first part, but now leverages a greater_than comparator for
+      // compare().
 
       /* Start partitioning the right side into [ values == PIVOT | values > Pivot ] */
       ssize_t pivot_l = left_w;
@@ -440,20 +534,22 @@ namespace tuddbs {
         }
       }
 
+      // To avoid copy-pasting the complete partition code for all in-place cluster detection variants, we use a compile
+      // time switch to detect plain sorting, tail or leaf clustering.
       if constexpr (std::is_same_v<SortStateT, DefaultSortState>) {
         /* -- Left Side -- */
-        const auto pivot_ls = get_pivot(data, left_start, left_w);
         if ((left_w - left_start) < (4 * SimdStyle::vector_element_count())) {
           sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, left_start, left_w);
         } else {
+          const auto pivot_ls = get_pivot(data, left_start, left_w);
           partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, left_start, left_w, pivot_ls);
         }
 
         /* -- Right Side -- */
-        const auto pivot_rs = get_pivot(data, pivot_r_w, right_start);
         if ((right_start - pivot_r_w) < (4 * SimdStyle::vector_element_count())) {
           sort_inplace::insertion_sort_fallback<SortOrderT>(data, indexes, right_w, right_start);
         } else {
+          const auto pivot_rs = get_pivot(data, pivot_r_w, right_start);
           partition<SimdStyle, IndexStyle, SortOrderT>(state, data, indexes, pivot_r_w, right_start, pivot_rs);
         }
       } else if constexpr (std::is_same_v<SortStateT, LeafClusteredSortState>) {
