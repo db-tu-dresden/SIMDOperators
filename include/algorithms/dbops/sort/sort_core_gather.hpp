@@ -31,12 +31,12 @@
 namespace tuddbs {
   namespace gather_sort {
     /**
-     * @brief Detect conitguous runs of the same value in a given range. Basically a run length encoding, stored as a
+     * @brief Detect contiguous runs of the same value in a given range. Basically, a run-length encoding, stored as a
      * Cluster struct, but maybe out of order. Data access is indirect into data through the index column.
      *
      * @param clusters A deque to pull and push runs from and to
      * @param data The data column
-     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param indexes The to-be-sorted column containing positions that point to values in data.
      * @param left The leftmost index to sort in indexes
      * @param right The rightmost index to sort in indexes
      */
@@ -76,7 +76,7 @@ namespace tuddbs {
     }
 
     /**
-     * @brief Template based helper to set the pivot register based on the actual processing style
+     * @brief Template-based helper to set the pivot register based on the actual processing style
      *
      * @tparam SimdStyle Provides the size of the data values, potentially used to populate the pivot register
      * @tparam IndexStyle Provides the integral mask definition, potentially used to populate the pivot register
@@ -99,7 +99,7 @@ namespace tuddbs {
      * @tparam T Datatype of the column data
      * @tparam U Datatype of the position list contained in indexes
      * @param data The data column
-     * @param indexes The to-be-sorted column containing positions, that point to values in data.
+     * @param indexes The to-be-sorted column containing positions that point to values in data.
      * @param left_boundary The leftmost index to sort in indexes
      * @param right_boundary The rightmost index to sort in indexes
      */
@@ -130,7 +130,7 @@ namespace tuddbs {
     };
 
     /**
-     * @brief Templated helper to distinguish the return type for gathered elements, i.e. if the data elements are
+     * @brief Templated helper to distinguish the return type for gathered elements, i.e., if the data elements are
      * integers or floating point values
      */
     template <class SimdStyle, class IndexStyle, typename data_t = typename SimdStyle::base_type,
@@ -148,13 +148,13 @@ namespace tuddbs {
     }
 
     /**
-     * @brief Templated helper for produce a bitmask using either SimdStyle or IndexStyle, based on the data type and
+     * @brief Templated helper for producing a bitmask using either SimdStyle or IndexStyle, based on the data type and
      * index type combination.
      *
      * @tparam SimdStyle TSL processing style for data elements, if the base_type is 1 Byte wide or signed (otherwise
      * the gather_mask truncation will do bad things to the sign bit).
      * @tparam IndexStyle TSL processing style for data elements, if the base_type is a 2 Byte or wider usigned integer
-     * @tparam type The comparison operation, i.e. LessThan or Equal
+     * @tparam type The comparison operation, i.e., LessThan or Equal
      * @tparam SimdStyle::base_type The type of the data elements
      * @tparam IndexStyle::base_type The type of the index elements
      */
@@ -189,7 +189,7 @@ namespace tuddbs {
      *
      * @tparam SimdStyle TSL processing style for data elements
      * @tparam IndexStyle TSL processing style for index elements
-     * @tparam type The comparison function, i.e. LessThan or Equal
+     * @tparam type The comparison function, i.e., LessThan or Equal
      * @tparam SimdStyle::base_type Derived type for the data elements
      * @tparam IndexStyle::base_type Derived type for the index elements
      */
@@ -218,11 +218,11 @@ namespace tuddbs {
     }
 
     /**
-     * @brief Processes a remainder-register, i.e. not all lanes are valid.
+     * @brief Processes a remainder-register, i.e., not all lanes are valid.
      *
      * @tparam SimdStyle TSL processing style for data elements
      * @tparam IndexStyle TSL processing style for index elements
-     * @tparam type The comparison function, i.e. LessThan or Equal
+     * @tparam type The comparison function, i.e., LessThan or Equal
      * @tparam SimdStyle::base_type Derived type for the data elements
      * @tparam IndexStyle::base_type Derived type for the index elements
      * @param data The actual data array
@@ -266,13 +266,13 @@ namespace tuddbs {
     }
 
     /**
-     * @brief Partitions the data and performans a recursive sort on the left and right side using gather operations
+     * @brief Partitions the data and performs a recursive sort on the left and right side using gather operations
      * (thus being indirect).
      *
-     * @details ...FILL ME...
+     * @details
      * The SortStateT is used to determine the final step of the partitioning function.
-     * If SortStateT is of type DefaultSortState, the function will recursively call itself on the left and right side.
-     * Otherwise, the function will detect clusters on the left and right side. Those clusters will be stored in the
+     * If SortStateT is of type DefaultSortState, the function will recursively call itself on the left and right sides.
+     * Otherwise, the function will detect clusters on the left and right sides. Those clusters will be stored in the
      * ClusteredSortState. The clusters are necessary for the multi-column sort. If SortStateT is of type
      * TailClusteredSortState, the function will return a ClusteredRange, which contains the start and end index of the
      * cluster.
