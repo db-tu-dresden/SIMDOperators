@@ -90,12 +90,11 @@ void sort_scalar(T* data, IndexType* idx, size_t elementcount) {
 
 template <typename T, typename IndexType = void>
 auto sort_with_std(const size_t elements = 64, const size_t seed = 13371337) -> std::vector<std::tuple<T, T, T>> {
-  std::vector<T> base, data_arr, col2, col3;
+  std::vector<T> data_arr, col2, col3;
 
   fill(data_arr, seed, 1, 5, elements);
   fill(col2, seed + 1, 3, 7, elements);
   fill(col3, seed + 2, 2, 9, elements);
-  base.insert(base.begin(), data_arr.begin(), data_arr.end());
 
   std::vector<std::tuple<T, T, T>> res;
   for (size_t i = 0; i < elements; ++i) {
@@ -110,7 +109,7 @@ auto sort_with_std(const size_t elements = 64, const size_t seed = 13371337) -> 
         return true;
       } else {
         if (std::get<1>(a) == std::get<1>(b)) {
-          return std::get<2>(a) < std::get<2>(b);
+          return std::get<2>(a) > std::get<2>(b);
         } else {
           return false;
         }
@@ -154,16 +153,10 @@ void test() {
             << " [d: " << tsl::type_name<T>() << ", i: " << tsl::type_name<IndexType>() << "]..." << std::endl;
   std::cout << "\t> Running std::sort..." << std::endl;
   const auto std_res = sort_with_std<T, IndexType>(elements, seed);
-  for (auto [a, b, c] : std_res) {
-    std::cout << +a << " " << +b << " " << +c << std::endl;
-  }
 
   std::cout << "\t> Running Inplace, Cluster on Leaf..." << std::endl;
   const auto inplace_leaf_res =
     sort<typename cluster_proxy_inplace_leaf::sorter_t, SimdStyle, IndexStyle, HS_GATH>(elements, seed);
-  for (auto [a, b, c] : inplace_leaf_res) {
-    std::cout << +a << " " << +b << " " << +c << std::endl;
-  }
   REQUIRE(std::equal(std_res.begin(), std_res.end(), inplace_leaf_res.begin()));
 
   std::cout << "\t> Running Inplace, Cluster on Tail..." << std::endl;
@@ -183,25 +176,24 @@ void test() {
 }
 
 #ifdef TSL_CONTAINS_AVX2
-// TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint64_t][i:uint64_t]") {
-//   test<tsl::simd<uint64_t, tsl::avx2>, tsl::simd<uint64_t, tsl::avx2>>();
-// }
-// TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint32_t][i:uint64_t]") {
-//   test<tsl::simd<uint32_t, tsl::avx2>, tsl::simd<uint64_t, tsl::avx2>>();
-// }
-// TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint32_t][i:uint32_t]") {
-//   test<tsl::simd<uint32_t, tsl::avx2>, tsl::simd<uint32_t, tsl::avx2>>();
-// }
-// TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint16_t][i:uint64_t]") {
-//   test<tsl::simd<uint16_t, tsl::avx2>, tsl::simd<uint64_t, tsl::avx2>>();
-// }
-// TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint16_t][i:uint32_t]") {
-//   test<tsl::simd<uint16_t, tsl::avx2>, tsl::simd<uint32_t, tsl::avx2>>();
-// }
-// TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint16_t][i:uint16_t]") {
-//   test<tsl::simd<uint16_t, tsl::avx2>, tsl::simd<uint16_t, tsl::avx2>>();
-// }
-
+TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint64_t][i:uint64_t]") {
+  test<tsl::simd<uint64_t, tsl::avx2>, tsl::simd<uint64_t, tsl::avx2>>();
+}
+TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint32_t][i:uint64_t]") {
+  test<tsl::simd<uint32_t, tsl::avx2>, tsl::simd<uint64_t, tsl::avx2>>();
+}
+TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint32_t][i:uint32_t]") {
+  test<tsl::simd<uint32_t, tsl::avx2>, tsl::simd<uint32_t, tsl::avx2>>();
+}
+TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint16_t][i:uint64_t]") {
+  test<tsl::simd<uint16_t, tsl::avx2>, tsl::simd<uint64_t, tsl::avx2>>();
+}
+TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint16_t][i:uint32_t]") {
+  test<tsl::simd<uint16_t, tsl::avx2>, tsl::simd<uint32_t, tsl::avx2>>();
+}
+TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint16_t][i:uint16_t]") {
+  test<tsl::simd<uint16_t, tsl::avx2>, tsl::simd<uint16_t, tsl::avx2>>();
+}
 TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint8_t][i:uint64_t]") {
   test<tsl::simd<uint8_t, tsl::avx2>, tsl::simd<uint64_t, tsl::avx2>>();
 }
@@ -214,5 +206,4 @@ TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint8_t][i:uint16_t]") {
 TEST_CASE("Cluster Sort 3 Columns", "[3col][avx2][d:uint8_t][i:uint8_t]") {
   test<tsl::simd<uint8_t, tsl::avx2>, tsl::simd<uint8_t, tsl::avx2>>();
 }
-
 #endif
