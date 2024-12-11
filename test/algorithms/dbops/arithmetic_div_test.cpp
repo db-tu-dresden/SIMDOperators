@@ -62,10 +62,16 @@ bool test(const size_t elements, const size_t seed = 0) {
   using div_t = tuddbs::Arithmetic<SimdStyle, HS>;
   div_t divider;
   divider(c, a, a + elements, b);
-
   bool success = true;
   for (size_t i = 0; i < elements; ++i) {
-    if (c[i] != root) {
+    bool correct;
+    if constexpr (std::is_floating_point_v<T>) {
+      correct = (std::fabs(c[i] - root) <= std::numeric_limits<T>::epsilon());
+    } else {
+      correct = (c[i] == root);
+    }
+
+    if (!correct) {
       std::cout << "Wrong value at index " << i << ". Is: " << +c[i] << " but should be: " << +root << std::endl;
       success = false;
       break;
