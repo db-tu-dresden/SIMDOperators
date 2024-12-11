@@ -17,20 +17,17 @@
  */
 // ------------------------------------------------------------------- //
 /**
- * @file scan.hpp
+ * @file filter_hints.hpp
  * @brief
  */
-#ifndef SIMDOPS_INCLUE_ALGORITHMS_DBOPS_SCAN_SCAN_HINTS_HPP
-#define SIMDOPS_INCLUE_ALGORITHMS_DBOPS_SCAN_SCAN_HINTS_HPP
+#pragma once
 namespace tuddbs {
 
   namespace hints {
     namespace operators {
-      namespace scan {
+      namespace filter {
         struct count_bits {};
-      }  // namespace scan
-    }    // namespace operators
-  }      // namespace hints
+      }  // namespace filter
+    }  // namespace operators
+  }  // namespace hints
 }  // namespace tuddbs
-
-#endif

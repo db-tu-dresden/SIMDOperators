@@ -4,7 +4,7 @@
 #include <functional>
 #include <random>
 
-#include "algorithms/dbops/scan.hpp"
+#include "algorithms/dbops/filter/filter.hpp"
 #include "simdops_testing.hpp"
 #include "tslCPUrt.hpp"
 #include "tslintrin.hpp"
