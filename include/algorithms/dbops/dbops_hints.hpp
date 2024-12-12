@@ -50,6 +50,8 @@ namespace tuddbs {
       struct sub {};
       struct div {};
       struct mul {};
+      struct sum {};
+      struct average {};
     }  // namespace arithmetic
   }  // namespace hints
 

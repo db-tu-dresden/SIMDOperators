@@ -42,9 +42,69 @@ namespace tuddbs {
    public:
     using SimdStyle = _SimdStyle;
     using reg_t = typename SimdStyle::register_type;
+    using base_t = typename SimdStyle::base_type;
 
     explicit Arithmetic() {}
 
+    /* Reducing Operations on a single column, e.g. sum, avg */
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end) {
+      const size_t element_count = p_end - p_data;
+      const size_t scalar_remainder = element_count % SimdStyle::vector_element_count();
+
+      reg_t res_vec = tsl::set1<SimdStyle>(0);
+      if constexpr (std::is_floating_point_v<base_t>) {
+        // This is a SIMDified version of the Kahan summation
+        reg_t error_vec = tsl::set1<SimdStyle>(0);
+        for (; p_data + SimdStyle::vector_element_count() <= p_end; p_data += SimdStyle::vector_element_count()) {
+          reg_t vals = tsl::loadu<SimdStyle>(p_data);
+          vals = tsl::sub<SimdStyle>(vals, error_vec);
+          reg_t buffer = tsl::add<SimdStyle>(res_vec, vals);
+          error_vec = tsl::sub<SimdStyle>(tsl::sub<SimdStyle>(buffer, res_vec), vals);
+          res_vec = buffer;
+        }
+      } else {
+        for (; p_data + SimdStyle::vector_element_count() <= p_end; p_data += SimdStyle::vector_element_count()) {
+          res_vec = tsl::add<SimdStyle>(res_vec, tsl::loadu<SimdStyle>(p_data));
+        }
+      }
+
+      // base_t res_scalar = tsl::hadd<SimdStyle>(res_vec);
+      base_t res_scalar = 0;
+
+      if constexpr (std::is_floating_point_v<base_t>) {
+        base_t error = static_cast<base_t>(0.0);
+        for (size_t i = 0; i < scalar_remainder; ++i) {
+          // This is a scalar version of the Kahan summation
+          base_t y = *p_data++ - error;
+          base_t t = res_scalar + y;
+          error = (t - res_scalar) - y;
+          res_scalar = t;
+        }
+        // Scalar remainder for Kahan
+        const auto vec_res = tsl::hadd<SimdStyle>(res_vec);
+        base_t y = vec_res - error;
+        res_scalar += y;
+      } else {
+        for (size_t i = 0; i < scalar_remainder; ++i) {
+          res_scalar += *p_data++;
+        }
+        res_scalar += tsl::hadd<SimdStyle>(res_vec);
+      }
+
+      if constexpr (has_hint<HintSet, tuddbs::hints::arithmetic::sum>) {
+        *p_result = res_scalar;
+      } else if constexpr (has_hint<HintSet, tuddbs::hints::arithmetic::average>) {
+        if constexpr (std::is_floating_point_v<base_t>) {
+          *p_result = res_scalar / element_count;
+        } else {
+          *p_result = static_cast<double>(res_scalar) / element_count;
+        }
+      } else {
+        throw std::runtime_error("Unknown single-column arithmetic. No suitable hint was provided.");
+      }
+    }
+
+    /* Combining two columns element-wise, e.g. add, sub, div, mul */
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data1, SimdOpsIterableOrSizeT auto p_end1,
                     SimdOpsIterable auto p_data2) {
       const size_t scalar_remainder = (p_end1 - p_data1) % SimdStyle::vector_element_count();
@@ -88,6 +148,12 @@ namespace tuddbs {
 
   template <typename SimdStyle>
   using col_divider_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>>;
+
+  template <typename SimdStyle>
+  using col_sum_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sum>>;
+
+  template <typename SimdStyle>
+  using col_average_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::average>>;
 }  // namespace tuddbs
 
 #endif

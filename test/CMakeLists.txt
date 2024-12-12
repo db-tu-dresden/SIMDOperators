@@ -33,6 +33,13 @@ create_test(
 )
 
 create_test(
+  TARGET_NAME arithmetic_sum_avg_test
+  SRC_FILES algorithms/dbops/arithmetic_sum_avg_test.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
+
+create_test(
   TARGET_NAME groupby_test
   SRC_FILES algorithms/dbops/groupby_test.cpp
   INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
