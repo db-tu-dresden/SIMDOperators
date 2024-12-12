@@ -68,307 +68,98 @@ bool calc(const size_t elements, const size_t seed = 0) {
 
 template <class SimdStyle>
 bool test(const size_t elements, const size_t seed = 0) {
-  // std::cout << "Running on " << tsl::type_name<typename SimdStyle::base_type>() << " with "
-  //           << tsl::type_name<typename SimdStyle::target_extension>()
-  //           << ", Scalar Remainder: " << elements % SimdStyle::vector_element_count() << "..." << std::flush;
-  // std::cout << "positive adder..." << std::flush;
-  const bool pos_subtractor = calc<SimdStyle, true>(elements, seed);
-  // std::cout << "negative adder..." << std::endl;
-  const bool neg_subtractor = calc<SimdStyle, false>(elements, seed);
-
-  return pos_subtractor && neg_subtractor;
+  const bool pos_adder = calc<SimdStyle, true>(elements, seed);
+  const bool neg_adder = calc<SimdStyle, false>(elements, seed);
+  return pos_adder && neg_adder;
 }
 
 const static size_t element_base_count = 1024 * 1024;
 
+template <class SimdStyle>
+bool dispatch_type(const size_t elements) {
+  std::cout << "  " << tsl::type_name<typename SimdStyle::base_type>() << "..." << std::endl;
+  bool all_good = true;
+  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
+    const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    all_good &= test<SimdStyle>(elements + i, seed);
+  }
+  return all_good;
+}
+
+TEST_CASE("Add 2 columns, scalar", "[scalar]") {
+  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
+  SECTION("ui8") { REQUIRE(dispatch_type<tsl::simd<uint8_t, tsl::scalar>>(element_base_count)); }
+  SECTION("ui16") { REQUIRE(dispatch_type<tsl::simd<uint16_t, tsl::scalar>>(element_base_count)); }
+  SECTION("ui32") { REQUIRE(dispatch_type<tsl::simd<uint32_t, tsl::scalar>>(element_base_count)); }
+  SECTION("ui64") { REQUIRE(dispatch_type<tsl::simd<uint64_t, tsl::scalar>>(element_base_count)); }
+  SECTION("i8") { REQUIRE(dispatch_type<tsl::simd<int8_t, tsl::scalar>>(element_base_count)); }
+  SECTION("i16") { REQUIRE(dispatch_type<tsl::simd<int16_t, tsl::scalar>>(element_base_count)); }
+  SECTION("i32") { REQUIRE(dispatch_type<tsl::simd<int32_t, tsl::scalar>>(element_base_count)); }
+  SECTION("i64") { REQUIRE(dispatch_type<tsl::simd<int64_t, tsl::scalar>>(element_base_count)); }
+  SECTION("f32") { REQUIRE(dispatch_type<tsl::simd<float, tsl::scalar>>(element_base_count)); }
+  SECTION("f64") { REQUIRE(dispatch_type<tsl::simd<double, tsl::scalar>>(element_base_count)); }
+}
+
 #ifdef TSL_CONTAINS_SSE
-TEST_CASE("Multiply 2 columns, ui8, sse", "[sse][ui8]") {
-  using SimdStyle = tsl::simd<uint8_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui16, sse", "[sse][ui16]") {
-  using SimdStyle = tsl::simd<uint16_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui32, sse", "[sse][ui32]") {
-  using SimdStyle = tsl::simd<uint32_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui64, sse", "[sse][ui64]") {
-  using SimdStyle = tsl::simd<uint64_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i8, sse", "[sse][i8]") {
-  using SimdStyle = tsl::simd<int8_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i16, sse", "[sse][i16]") {
-  using SimdStyle = tsl::simd<int16_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i32, sse", "[sse][i32]") {
-  using SimdStyle = tsl::simd<int32_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i64, sse", "[sse][i64]") {
-  using SimdStyle = tsl::simd<int64_t, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f32, sse", "[sse][f32]") {
-  using SimdStyle = tsl::simd<float, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f64, sse", "[sse][f64]") {
-  using SimdStyle = tsl::simd<double, tsl::sse>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
+TEST_CASE("Add 2 columns, sse", "[sse]") {
+  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
+  SECTION("ui8") { REQUIRE(dispatch_type<tsl::simd<uint8_t, tsl::sse>>(element_base_count)); }
+  SECTION("ui16") { REQUIRE(dispatch_type<tsl::simd<uint16_t, tsl::sse>>(element_base_count)); }
+  SECTION("ui32") { REQUIRE(dispatch_type<tsl::simd<uint32_t, tsl::sse>>(element_base_count)); }
+  SECTION("ui64") { REQUIRE(dispatch_type<tsl::simd<uint64_t, tsl::sse>>(element_base_count)); }
+  SECTION("i8") { REQUIRE(dispatch_type<tsl::simd<int8_t, tsl::sse>>(element_base_count)); }
+  SECTION("i16") { REQUIRE(dispatch_type<tsl::simd<int16_t, tsl::sse>>(element_base_count)); }
+  SECTION("i32") { REQUIRE(dispatch_type<tsl::simd<int32_t, tsl::sse>>(element_base_count)); }
+  SECTION("i64") { REQUIRE(dispatch_type<tsl::simd<int64_t, tsl::sse>>(element_base_count)); }
+  SECTION("f32") { REQUIRE(dispatch_type<tsl::simd<float, tsl::sse>>(element_base_count)); }
+  SECTION("f64") { REQUIRE(dispatch_type<tsl::simd<double, tsl::sse>>(element_base_count)); }
 }
 #endif
 
 #ifdef TSL_CONTAINS_AVX2
-TEST_CASE("Multiply 2 columns, ui8, avx2", "[avx2][ui8]") {
-  using SimdStyle = tsl::simd<uint8_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui16, avx2", "[avx2][ui16]") {
-  using SimdStyle = tsl::simd<uint16_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui32, avx2", "[avx2][ui32]") {
-  using SimdStyle = tsl::simd<uint32_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui64, avx2", "[avx2][ui64]") {
-  using SimdStyle = tsl::simd<uint64_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i8, avx2", "[avx2][i8]") {
-  using SimdStyle = tsl::simd<int8_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i16, avx2", "[avx2][i16]") {
-  using SimdStyle = tsl::simd<int16_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i32, avx2", "[avx2][i32]") {
-  using SimdStyle = tsl::simd<int32_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i64, avx2", "[avx2][i64]") {
-  using SimdStyle = tsl::simd<int64_t, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f32, avx2", "[avx2][f32]") {
-  using SimdStyle = tsl::simd<float, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f64, avx2", "[avx2][f64]") {
-  using SimdStyle = tsl::simd<double, tsl::avx2>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
+TEST_CASE("Add 2 columns, avx2", "[avx2]") {
+  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
+  SECTION("ui8") { REQUIRE(dispatch_type<tsl::simd<uint8_t, tsl::avx2>>(element_base_count)); }
+  SECTION("ui16") { REQUIRE(dispatch_type<tsl::simd<uint16_t, tsl::avx2>>(element_base_count)); }
+  SECTION("ui32") { REQUIRE(dispatch_type<tsl::simd<uint32_t, tsl::avx2>>(element_base_count)); }
+  SECTION("ui64") { REQUIRE(dispatch_type<tsl::simd<uint64_t, tsl::avx2>>(element_base_count)); }
+  SECTION("i8") { REQUIRE(dispatch_type<tsl::simd<int8_t, tsl::avx2>>(element_base_count)); }
+  SECTION("i16") { REQUIRE(dispatch_type<tsl::simd<int16_t, tsl::avx2>>(element_base_count)); }
+  SECTION("i32") { REQUIRE(dispatch_type<tsl::simd<int32_t, tsl::avx2>>(element_base_count)); }
+  SECTION("i64") { REQUIRE(dispatch_type<tsl::simd<int64_t, tsl::avx2>>(element_base_count)); }
+  SECTION("f32") { REQUIRE(dispatch_type<tsl::simd<float, tsl::avx2>>(element_base_count)); }
+  SECTION("f64") { REQUIRE(dispatch_type<tsl::simd<double, tsl::avx2>>(element_base_count)); }
 }
 #endif
 
 #ifdef TSL_CONTAINS_AVX512
-TEST_CASE("Multiply 2 columns, ui8, avx512", "[avx512][ui8]") {
-  using SimdStyle = tsl::simd<uint8_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui16, avx512", "[avx512][ui16]") {
-  using SimdStyle = tsl::simd<uint16_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui32, avx512", "[avx512][ui32]") {
-  using SimdStyle = tsl::simd<uint32_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui64, avx512", "[avx512][ui64]") {
-  using SimdStyle = tsl::simd<uint64_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i8, avx512", "[avx512][i8]") {
-  using SimdStyle = tsl::simd<int8_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i16, avx512", "[avx512][i16]") {
-  using SimdStyle = tsl::simd<int16_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i32, avx512", "[avx512][i32]") {
-  using SimdStyle = tsl::simd<int32_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i64, avx512", "[avx512][i64]") {
-  using SimdStyle = tsl::simd<int64_t, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f32, avx512", "[avx512][f32]") {
-  using SimdStyle = tsl::simd<float, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f64, avx512", "[avx512][f64]") {
-  using SimdStyle = tsl::simd<double, tsl::avx512>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
+TEST_CASE("Add 2 columns, avx512", "[avx512]") {
+  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
+  SECTION("ui8") { REQUIRE(dispatch_type<tsl::simd<uint8_t, tsl::avx512>>(element_base_count)); }
+  SECTION("ui16") { REQUIRE(dispatch_type<tsl::simd<uint16_t, tsl::avx512>>(element_base_count)); }
+  SECTION("ui32") { REQUIRE(dispatch_type<tsl::simd<uint32_t, tsl::avx512>>(element_base_count)); }
+  SECTION("ui64") { REQUIRE(dispatch_type<tsl::simd<uint64_t, tsl::avx512>>(element_base_count)); }
+  SECTION("i8") { REQUIRE(dispatch_type<tsl::simd<int8_t, tsl::avx512>>(element_base_count)); }
+  SECTION("i16") { REQUIRE(dispatch_type<tsl::simd<int16_t, tsl::avx512>>(element_base_count)); }
+  SECTION("i32") { REQUIRE(dispatch_type<tsl::simd<int32_t, tsl::avx512>>(element_base_count)); }
+  SECTION("i64") { REQUIRE(dispatch_type<tsl::simd<int64_t, tsl::avx512>>(element_base_count)); }
+  SECTION("f32") { REQUIRE(dispatch_type<tsl::simd<float, tsl::avx512>>(element_base_count)); }
+  SECTION("f64") { REQUIRE(dispatch_type<tsl::simd<double, tsl::avx512>>(element_base_count)); }
 }
 #endif
 
 #ifdef TSL_CONTAINS_NEON
-TEST_CASE("Multiply 2 columns, ui8, neon", "[neon][ui8]") {
-  using SimdStyle = tsl::simd<uint8_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui16, neon", "[neon][ui16]") {
-  using SimdStyle = tsl::simd<uint16_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui32, neon", "[neon][ui32]") {
-  using SimdStyle = tsl::simd<uint32_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, ui64, neon", "[neon][ui64]") {
-  using SimdStyle = tsl::simd<uint64_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i8, neon", "[neon][i8]") {
-  using SimdStyle = tsl::simd<int8_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i16, neon", "[neon][i16]") {
-  using SimdStyle = tsl::simd<int16_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i32, neon", "[neon][i32]") {
-  using SimdStyle = tsl::simd<int32_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, i64, neon", "[neon][i64]") {
-  using SimdStyle = tsl::simd<int64_t, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f32, neon", "[neon][f32]") {
-  using SimdStyle = tsl::simd<float, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
-}
-TEST_CASE("Multiply 2 columns, f64, neon", "[neon][f64]") {
-  using SimdStyle = tsl::simd<double, tsl::neon>;
-  const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-  for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
-    REQUIRE(test<SimdStyle>(element_base_count + i, seed));
-  }
+TEST_CASE("Add 2 columns, neon", "[neon]") {
+  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
+  SECTION("ui8") { REQUIRE(dispatch_type<tsl::simd<uint8_t, tsl::neon>>(element_base_count)); }
+  SECTION("ui16") { REQUIRE(dispatch_type<tsl::simd<uint16_t, tsl::neon>>(element_base_count)); }
+  SECTION("ui32") { REQUIRE(dispatch_type<tsl::simd<uint32_t, tsl::neon>>(element_base_count)); }
+  SECTION("ui64") { REQUIRE(dispatch_type<tsl::simd<uint64_t, tsl::neon>>(element_base_count)); }
+  SECTION("i8") { REQUIRE(dispatch_type<tsl::simd<int8_t, tsl::neon>>(element_base_count)); }
+  SECTION("i16") { REQUIRE(dispatch_type<tsl::simd<int16_t, tsl::neon>>(element_base_count)); }
+  SECTION("i32") { REQUIRE(dispatch_type<tsl::simd<int32_t, tsl::neon>>(element_base_count)); }
+  SECTION("i64") { REQUIRE(dispatch_type<tsl::simd<int64_t, tsl::neon>>(element_base_count)); }
+  SECTION("f32") { REQUIRE(dispatch_type<tsl::simd<float, tsl::neon>>(element_base_count)); }
+  SECTION("f64") { REQUIRE(dispatch_type<tsl::simd<double, tsl::neon>>(element_base_count)); }
 }
 #endif
