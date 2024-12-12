@@ -45,9 +45,7 @@ bool test(const size_t elements, const size_t seed = 0) {
     b[i] = root;
   }
 
-  using HS = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>;
-  using mul_t = tuddbs::Arithmetic<SimdStyle, HS>;
-  mul_t multiplier;
+  tuddbs::col_multiplier_t<SimdStyle> multiplier;
   multiplier(c, a, a + elements, b);
 
   const T expected_value = root * root;

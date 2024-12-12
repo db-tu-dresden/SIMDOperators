@@ -43,9 +43,7 @@ bool calc(const size_t elements, const size_t seed = 0) {
     b[i] = val;
   }
 
-  using HS = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>;
-  using add_t = tuddbs::Arithmetic<SimdStyle, HS>;
-  add_t adder;
+  tuddbs::col_adder_t<SimdStyle> adder;
   adder(c, a, a + elements, b);
 
   const T expected_value = 2 * val;

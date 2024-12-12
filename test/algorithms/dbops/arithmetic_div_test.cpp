@@ -60,9 +60,7 @@ bool test(const size_t elements, const size_t seed = 0) {
     b[i] = root;
   }
 
-  using HS = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>;
-  using div_t = tuddbs::Arithmetic<SimdStyle, HS>;
-  div_t divider;
+  tuddbs::col_divider_t<SimdStyle> divider;
   divider(c, a, a + elements, b);
   bool success = true;
   for (size_t i = 0; i < elements; ++i) {

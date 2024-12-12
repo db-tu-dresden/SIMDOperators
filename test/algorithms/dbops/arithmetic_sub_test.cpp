@@ -42,9 +42,7 @@ bool calc(const size_t elements, const size_t seed = 0) {
     b[i] = val;
   }
 
-  using HS = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>;
-  using sub_t = tuddbs::Arithmetic<SimdStyle, HS>;
-  sub_t subtractor;
+  tuddbs::col_subtractor_t<SimdStyle> subtractor;
   subtractor(c, a, a + elements, b);
 
   const T expected_value = 0;

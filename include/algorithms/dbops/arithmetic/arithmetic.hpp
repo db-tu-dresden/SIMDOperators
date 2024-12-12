@@ -76,6 +76,18 @@ namespace tuddbs {
       }
     }
   };
+
+  template <typename SimdStyle>
+  using col_adder_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>>;
+
+  template <typename SimdStyle>
+  using col_subtractor_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>>;
+
+  template <typename SimdStyle>
+  using col_multiplier_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>>;
+
+  template <typename SimdStyle>
+  using col_divider_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>>;
 }  // namespace tuddbs
 
 #endif
