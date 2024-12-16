@@ -191,7 +191,7 @@ namespace tuddbs {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
-      auto valid_masks = reinterpret_iterable<typename KeySimdStyle::imask_type>(p_valid_masks);
+      auto valid_masks = reinterpret_iterable<typename KeySimdStyle::imask_type *>(p_valid_masks);
       auto const all_false_mask = tsl::integral_all_false<KeySimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<KeySimdStyle, Idof>(m_empty_bucket_value);
 
@@ -224,7 +224,7 @@ namespace tuddbs {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
-      auto valid_masks = reinterpret_iterable<typename KeySimdStyle::imask_type>(p_valid_masks);
+      auto valid_masks = reinterpret_iterable<typename KeySimdStyle::imask_type *>(p_valid_masks);
       auto const all_false_mask = tsl::integral_all_false<KeySimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<KeySimdStyle, Idof>(m_empty_bucket_value);
 

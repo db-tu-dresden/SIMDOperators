@@ -287,7 +287,7 @@ namespace tuddbs {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
-      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type>(p_valid_masks);
+      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type *>(p_valid_masks);
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
 
@@ -335,7 +335,7 @@ namespace tuddbs {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
-      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type>(p_valid_masks);
+      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type *>(p_valid_masks);
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
       auto const empty_bucket_reg = tsl::set1<SimdStyle, Idof>(m_empty_bucket_value);
 
@@ -494,7 +494,7 @@ namespace tuddbs {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
-      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type>(p_valid_masks);
+      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type *>(p_valid_masks);
 
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
 
@@ -522,7 +522,7 @@ namespace tuddbs {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
-      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type>(p_valid_masks);
+      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type *>(p_valid_masks);
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
 
       for (; p_data != batched_end_end; p_data += bits_per_mask, ++valid_masks) {

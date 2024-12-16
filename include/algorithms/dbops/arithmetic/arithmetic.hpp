@@ -29,14 +29,26 @@
 #include <climits>
 #include <cstddef>
 #include <deque>
+#include <iostream>
 #include <iterable.hpp>
 #include <tuple>
 #include <type_traits>
 
 #include "algorithms/dbops/dbops_hints.hpp"
+#include "generated/declarations/calc.hpp"
 #include "tsl.hpp"
 
 namespace tuddbs {
+  /**
+   * @brief A class for performing arithmetic operations on columns.
+   * @details We assume that the data is stored in a columnar format.
+   * Furthermore, the operation must not exceed the range of the base type.
+   * Consequently, when working with uint8_t, the maximum possible result is 255.
+   * @todo We should add a convert_up version to support arbitrary length columns.
+   *
+   * @tparam _SimdStyle
+   * @tparam HintSet
+   */
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::arithmetic::add>>
   class Arithmetic {
    public:
@@ -47,7 +59,9 @@ namespace tuddbs {
     explicit Arithmetic() {}
 
     /* Reducing Operations on a single column, e.g., sum, avg */
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end) {
+    template <class HS = HintSet>
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+                    activate_for_position_list<HS> = {}) {
       const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data, p_end);
       const auto scalar_end = tuddbs::iter_end(p_data, p_end);
 
@@ -105,9 +119,129 @@ namespace tuddbs {
       }
     }
 
+    template <class HS = HintSet>
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+                    SimdOpsIterable auto p_valid_masks, activate_for_bit_mask<HS> = {}) {
+      using CountSimdStyle = typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_type>;
+      const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data, p_end);
+      const auto scalar_end = tuddbs::iter_end(p_data, p_end);
+      auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type *>(p_valid_masks);
+      auto valid_elements_count_reg = tsl::set1<CountSimdStyle>(0);
+      auto const valid_elements_increment_reg = tsl::set1<CountSimdStyle>(1);
+      reg_t res_vec = tsl::set1<SimdStyle>(0);
+      // std::cout << "1111...111111111111111111111111111111111.............................." << std::endl;
+      if constexpr (std::is_floating_point_v<base_t>) {
+        // This is a SIMDified version of the Kahan summation
+        reg_t error_vec = tsl::set1<SimdStyle>(0);
+        for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++valid_masks) {
+          reg_t vals = tsl::loadu<SimdStyle>(p_data);
+          auto valid_mask = tsl::load_mask<SimdStyle>(valid_masks);
+          vals = tsl::sub<SimdStyle>(valid_mask, vals, error_vec);
+          reg_t buffer = tsl::add<SimdStyle>(valid_mask, res_vec, vals);
+          error_vec = tsl::sub<SimdStyle>(valid_mask, tsl::sub<SimdStyle>(valid_mask, buffer, res_vec), vals);
+          res_vec = buffer;
+          if constexpr (std::is_same_v<decltype(valid_mask), typename CountSimdStyle::mask_type>) {
+            valid_elements_count_reg =
+              tsl::add<CountSimdStyle>(valid_mask, valid_elements_count_reg, valid_elements_increment_reg);
+          } else {
+            valid_elements_count_reg = tsl::add<CountSimdStyle>(tsl::reinterpret<SimdStyle, CountSimdStyle>(valid_mask),
+                                                                valid_elements_count_reg, valid_elements_increment_reg);
+          }
+        }
+      } else {
+        auto const p_data_start = p_data;
+        for (; p_data != simd_end; p_data += SimdStyle::vector_element_count(), ++valid_masks) {
+          // std::cout << "data[" << (p_data - p_data_start) << ":"
+          // << (p_data - p_data_start) + SimdStyle::vector_element_count() << "] " << std::endl;
+          auto valid_mask = tsl::load_mask<SimdStyle>(valid_masks);
+          // if constexpr (SimdStyle::vector_element_count() > 1) {
+          // std::cout << "Valid mask integral value: "
+          // << std::bitset<sizeof(typename SimdStyle::imask_type) * CHAR_BIT>{*valid_masks} << std::endl;
+          // std::cout << "Valid Elements Mask      : ";
+          // tsl::to_ostream<SimdStyle>(std::cout, valid_mask);
+          // std::cout << "Result Vector (Old)      : ";
+          // tsl::to_ostream<SimdStyle>(std::cout, res_vec);
+          // std::cout << "Valid Elements Mask (Old): ";
+          // tsl::to_ostream<SimdStyle>(std::cout, valid_elements_count_reg);
+          // } else {
+          // std::cout << "Valid Elements Mask      : " << valid_elements_count_reg << std::endl;
+          // std::cout << "Result Vector (Old)      : " << +res_vec << std::endl;
+          // std::cout << "Valid Elements Mask (Old): " << +valid_elements_count_reg << std::endl;
+          // }
+          res_vec = tsl::add<SimdStyle>(valid_mask, res_vec, tsl::loadu<SimdStyle>(p_data));
+          valid_elements_count_reg =
+            tsl::add<CountSimdStyle>(valid_mask, valid_elements_count_reg, valid_elements_increment_reg);
+          // if constexpr (SimdStyle::vector_element_count() > 1) {
+          // std::cout << "Result Vector (New)      : ";
+          // tsl::to_ostream<SimdStyle>(std::cout, res_vec);
+          // std::cout << "Valid Elements Mask (New): ";
+          // tsl::to_ostream<SimdStyle>(std::cout, valid_elements_count_reg);
+          // } else {
+          // std::cout << "Result Vector (New)      : " << +res_vec << std::endl;
+          // std::cout << "Valid Elements Mask (New): " << +valid_elements_count_reg << std::endl;
+          // }
+        }
+      }
+
+      // base_t res_scalar = tsl::hadd<SimdStyle>(res_vec);
+      base_t res_scalar = 0;
+      typename SimdStyle::offset_base_type valid_elements_count = tsl::hadd<CountSimdStyle>(valid_elements_count_reg);
+      if constexpr (std::is_floating_point_v<base_t>) {
+        base_t error = static_cast<base_t>(0.0);
+        auto valid_mask = tsl::load_imask<SimdStyle>(valid_masks);
+        for (; p_data != scalar_end; p_data++) {
+          if ((valid_mask & 0b1) == 0b1) {
+            // This is a scalar version of the Kahan summation
+            base_t y = *p_data - error;
+            base_t t = res_scalar + y;
+            error = (t - res_scalar) - y;
+            res_scalar = t;
+            ++valid_elements_count;
+          }
+          valid_mask >>= 1;
+        }
+        // Scalar remainder for Kahan
+        const auto vec_res = tsl::hadd<SimdStyle>(res_vec);
+        base_t y = vec_res - error;
+        res_scalar += y;
+      } else {
+        auto valid_mask = tsl::load_imask<SimdStyle>(valid_masks);
+        // std::cout << "Remainder:" << std::endl;
+        for (; p_data != scalar_end; p_data++) {
+          // std::cout << "Valid mask: " << (valid_mask & 0b1) << std::endl;
+          // std::cout << "result (old): " << +res_scalar << std::endl;
+          // std::cout << "valid count (old): " << +valid_elements_count << std::endl;
+          if ((valid_mask & 0b1) == 0b1) {
+            res_scalar += *p_data;
+            ++valid_elements_count;
+          }
+          valid_mask >>= 1;
+          // std::cout << "result (new): " << +res_scalar << std::endl;
+          // std::cout << "valid count (new): " << +valid_elements_count << std::endl;
+        }
+        res_scalar += tsl::hadd<SimdStyle>(res_vec);
+        // std::cout << "Final result: " << +res_scalar << std::endl;
+      }
+
+      if constexpr (has_hint<HintSet, tuddbs::hints::arithmetic::sum>) {
+        *p_result = res_scalar;
+      } else if constexpr (has_hint<HintSet, tuddbs::hints::arithmetic::average>) {
+        if constexpr (std::is_floating_point_v<base_t>) {
+          *p_result = res_scalar / valid_elements_count;
+        } else {
+          *p_result = static_cast<double>(res_scalar) / valid_elements_count;
+        }
+      } else {
+        throw std::runtime_error("Unknown single-column arithmetic. No suitable hint was provided.");
+      }
+      // std::cout << "Arithmetic::operator()(activate_for_bit_mask): valid count = " << valid_elements_count <<
+      // std::endl;
+    }
+
     /* Combining two columns element-wise, e.g., add, sub, div, mul */
+    template <typename HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data1, SimdOpsIterableOrSizeT auto p_end1,
-                    SimdOpsIterable auto p_data2) {
+                    SimdOpsIterable auto p_data2, activate_for_position_list<HS> = {}) {
       const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data1, p_end1);
       const auto scalar_end = tuddbs::iter_end(p_data1, p_end1);
       for (; p_data1 != simd_end; p_data1 += SimdStyle::vector_element_count(),
@@ -153,10 +287,21 @@ namespace tuddbs {
   using col_divider_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>>;
 
   template <typename SimdStyle>
-  using col_sum_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sum>>;
+  using col_sum_t = tuddbs::Arithmetic<
+    SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sum, tuddbs::hints::intermediate::position_list>>;
 
   template <typename SimdStyle>
-  using col_average_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::average>>;
+  using col_average_t = tuddbs::Arithmetic<
+    SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::average, tuddbs::hints::intermediate::position_list>>;
+
+  template <typename SimdStyle>
+  using col_bm_sum_t =
+    tuddbs::Arithmetic<SimdStyle,
+                       tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sum, tuddbs::hints::intermediate::bit_mask>>;
+
+  template <typename SimdStyle>
+  using col_bm_average_t = tuddbs::Arithmetic<
+    SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::average, tuddbs::hints::intermediate::bit_mask>>;
 }  // namespace tuddbs
 
 #endif
