@@ -1,7 +1,5 @@
 
 // #include "algorithms/dbops/sort/sort_direct.hpp"
-#include "algorithms/dbops/arithmetic/arithmetic.hpp"
-
 #include <algorithm>
 #include <catch2/catch_template_test_macros.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -11,6 +9,8 @@
 #include <iomanip>
 #include <iostream>
 #include <random>
+
+#include "algorithms/dbops/arithmetic/arithmetic.hpp"
 
 template <typename T>
 struct TestData {
@@ -104,7 +104,7 @@ TestData<T> getTestAndResultValue(const size_t seed) {
   return values;
 }
 
-template <class arithmetic_t, class SimdStyle, typename T = SimdStyle::base_type>
+template <class arithmetic_t, class SimdStyle, bool use_pointer_as_end, typename T = SimdStyle::base_type>
 bool calc(const T testval1, const T testval2, const T expected_result, const size_t elements) {
   using cpu_executor = tsl::executor<tsl::runtime::cpu>;
   cpu_executor exec;
@@ -118,7 +118,11 @@ bool calc(const T testval1, const T testval2, const T expected_result, const siz
   }
 
   arithmetic_t perform;
-  perform(result, data1, data1 + elements, data2);
+  if constexpr (use_pointer_as_end) {
+    perform(result, data1, data1 + elements, data2);
+  } else {
+    perform(result, data1, elements, data2);
+  }
 
   bool success = true;
   for (size_t i = 0; i < elements; ++i) {
@@ -142,16 +146,21 @@ void test(const size_t elements, const size_t seed = 0) {
   using base_t = typename SimdStyle::base_type;
   using test_tuple_t = std::tuple<base_t, base_t, base_t>;
   constexpr bool make_negative = true;
+  constexpr bool use_pointer_as_end = true;
 
   for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
     const TestData<base_t> testData_pos = getTestAndResultValue<HintSet, SimdStyle, !make_negative>(seed);
-    REQUIRE(calc<arithmetic_t, SimdStyle>(testData_pos.col1_value, testData_pos.col2_value,
-                                          testData_pos.expected_result, elements));
+    REQUIRE(calc<arithmetic_t, SimdStyle, use_pointer_as_end>(testData_pos.col1_value, testData_pos.col2_value,
+                                                              testData_pos.expected_result, elements));
+    REQUIRE(calc<arithmetic_t, SimdStyle, !use_pointer_as_end>(testData_pos.col1_value, testData_pos.col2_value,
+                                                               testData_pos.expected_result, elements));
 
     if constexpr (std::is_signed_v<base_t>) {
       const TestData<base_t> testData_neg = getTestAndResultValue<HintSet, SimdStyle, make_negative>(seed);
-      REQUIRE(calc<arithmetic_t, SimdStyle>(testData_neg.col1_value, testData_neg.col2_value,
-                                            testData_neg.expected_result, elements));
+      REQUIRE(calc<arithmetic_t, SimdStyle, use_pointer_as_end>(testData_neg.col1_value, testData_neg.col2_value,
+                                                                testData_neg.expected_result, elements));
+      REQUIRE(calc<arithmetic_t, SimdStyle, !use_pointer_as_end>(testData_neg.col1_value, testData_neg.col2_value,
+                                                                 testData_neg.expected_result, elements));
     }
   }
 }

@@ -1,6 +1,7 @@
 
 // #include "algorithms/dbops/sort/sort_direct.hpp"
 #include <algorithm>
+#include <catch2/catch_template_test_macros.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/interfaces/catch_interfaces_capture.hpp>
 #include <catch2/matchers/catch_matchers_templated.hpp>
@@ -33,7 +34,7 @@ bool approximate_equality(T a, T b) {
     const T max_val = std::max(std::fabs(a), std::fabs(b));
     const T max_mult = std::max(static_cast<T>(1.0), max_val);
     const T ulps = std::numeric_limits<T>::epsilon() * max_mult;
-    return std::fabs(a - b) <= (ulps * 2);
+    return std::fabs(a - b) <= ulps;
   } else {
     return a == b;
   }
@@ -106,6 +107,7 @@ const static size_t element_base_count = 1024 * 1024;
 
 template <class SimdStyle>
 bool dispatch_type() {
+  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
   constexpr bool is_i8 = std::is_same_v<typename SimdStyle::base_type, int8_t>;
 
   const size_t elements =
@@ -129,80 +131,35 @@ bool dispatch_type() {
   return all_good;
 }
 
-TEST_CASE("Sum Reduction, scalar", "[scalar]") {
-  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
-  SECTION("ui8") { dispatch_type<tsl::simd<uint8_t, tsl::scalar>>(); }
-  SECTION("ui16") { dispatch_type<tsl::simd<uint16_t, tsl::scalar>>(); }
-  SECTION("ui32") { dispatch_type<tsl::simd<uint32_t, tsl::scalar>>(); }
-  SECTION("ui64") { dispatch_type<tsl::simd<uint64_t, tsl::scalar>>(); }
-  SECTION("i8") { dispatch_type<tsl::simd<int8_t, tsl::scalar>>(); }
-  SECTION("i16") { dispatch_type<tsl::simd<int16_t, tsl::scalar>>(); }
-  SECTION("i32") { dispatch_type<tsl::simd<int32_t, tsl::scalar>>(); }
-  SECTION("i64") { dispatch_type<tsl::simd<int64_t, tsl::scalar>>(); }
-  SECTION("f32") { dispatch_type<tsl::simd<float, tsl::scalar>>(); }
-  SECTION("f64") { dispatch_type<tsl::simd<double, tsl::scalar>>(); }
+TEMPLATE_TEST_CASE("Sum and Average, scalar", "[scalar]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
+                   int32_t, int64_t, float, double) {
+  SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::scalar>>(); }
 }
 
 #ifdef TSL_CONTAINS_SSE
-TEST_CASE("Sum Reduction, sse", "[sse]") {
-  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
-  SECTION("ui8") { dispatch_type<tsl::simd<uint8_t, tsl::sse>>(); }
-  SECTION("ui16") { dispatch_type<tsl::simd<uint16_t, tsl::sse>>(); }
-  SECTION("ui32") { dispatch_type<tsl::simd<uint32_t, tsl::sse>>(); }
-  SECTION("ui64") { dispatch_type<tsl::simd<uint64_t, tsl::sse>>(); }
-  SECTION("i8") { dispatch_type<tsl::simd<int8_t, tsl::sse>>(); }
-  SECTION("i16") { dispatch_type<tsl::simd<int16_t, tsl::sse>>(); }
-  SECTION("i32") { dispatch_type<tsl::simd<int32_t, tsl::sse>>(); }
-  SECTION("i64") { dispatch_type<tsl::simd<int64_t, tsl::sse>>(); }
-  SECTION("f32") { dispatch_type<tsl::simd<float, tsl::sse>>(); }
-  SECTION("f64") { dispatch_type<tsl::simd<double, tsl::sse>>(); }
+TEMPLATE_TEST_CASE("Sum and Average, sse", "[sse]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t,
+                   int64_t, float, double) {
+  SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::sse>>(); }
 }
 #endif
 
 #ifdef TSL_CONTAINS_AVX2
-TEST_CASE("Sum Reduction, avx2", "[avx2]") {
-  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
-  SECTION("ui8") { dispatch_type<tsl::simd<uint8_t, tsl::avx2>>(); }
-  SECTION("ui16") { dispatch_type<tsl::simd<uint16_t, tsl::avx2>>(); }
-  SECTION("ui32") { dispatch_type<tsl::simd<uint32_t, tsl::avx2>>(); }
-  SECTION("ui64") { dispatch_type<tsl::simd<uint64_t, tsl::avx2>>(); }
-  SECTION("i8") { dispatch_type<tsl::simd<int8_t, tsl::avx2>>(); }
-  SECTION("i16") { dispatch_type<tsl::simd<int16_t, tsl::avx2>>(); }
-  SECTION("i32") { dispatch_type<tsl::simd<int32_t, tsl::avx2>>(); }
-  SECTION("i64") { dispatch_type<tsl::simd<int64_t, tsl::avx2>>(); }
-  SECTION("f32") { dispatch_type<tsl::simd<float, tsl::avx2>>(); }
-  SECTION("f64") { dispatch_type<tsl::simd<double, tsl::avx2>>(); }
+TEMPLATE_TEST_CASE("Sum and Average, avx2", "[avx2]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t,
+                   int64_t, float, double) {
+  SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx2>>(); }
 }
 #endif
 
 #ifdef TSL_CONTAINS_AVX512
-TEST_CASE("Sum Reduction, avx512", "[avx512]") {
-  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
-  SECTION("ui8") { dispatch_type<tsl::simd<uint8_t, tsl::avx512>>(); }
-  SECTION("ui16") { dispatch_type<tsl::simd<uint16_t, tsl::avx512>>(); }
-  SECTION("ui32") { dispatch_type<tsl::simd<uint32_t, tsl::avx512>>(); }
-  SECTION("ui64") { dispatch_type<tsl::simd<uint64_t, tsl::avx512>>(); }
-  SECTION("i8") { dispatch_type<tsl::simd<int8_t, tsl::avx512>>(); }
-  SECTION("i16") { dispatch_type<tsl::simd<int16_t, tsl::avx512>>(); }
-  SECTION("i32") { dispatch_type<tsl::simd<int32_t, tsl::avx512>>(); }
-  SECTION("i64") { dispatch_type<tsl::simd<int64_t, tsl::avx512>>(); }
-  SECTION("f32") { dispatch_type<tsl::simd<float, tsl::avx512>>(); }
-  SECTION("f64") { dispatch_type<tsl::simd<double, tsl::avx512>>(); }
+TEMPLATE_TEST_CASE("Sum and Average, avx512", "[avx512]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
+                   int32_t, int64_t, float, double) {
+  SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx512>>(); }
 }
 #endif
 
 #ifdef TSL_CONTAINS_NEON
-TEST_CASE("Sum Reduction, neon", "[neon]") {
-  std::cout << Catch::getResultCapture().getCurrentTestName() << std::endl;
-  SECTION("ui8") { dispatch_type<tsl::simd<uint8_t, tsl::neon>>(); }
-  SECTION("ui16") { dispatch_type<tsl::simd<uint16_t, tsl::neon>>(); }
-  SECTION("ui32") { dispatch_type<tsl::simd<uint32_t, tsl::neon>>(); }
-  SECTION("ui64") { dispatch_type<tsl::simd<uint64_t, tsl::neon>>(); }
-  SECTION("i8") { dispatch_type<tsl::simd<int8_t, tsl::neon>>(); }
-  SECTION("i16") { dispatch_type<tsl::simd<int16_t, tsl::neon>>(); }
-  SECTION("i32") { dispatch_type<tsl::simd<int32_t, tsl::neon>>(); }
-  SECTION("i64") { dispatch_type<tsl::simd<int64_t, tsl::neon>>(); }
-  SECTION("f32") { dispatch_type<tsl::simd<float, tsl::neon>>(); }
-  SECTION("f64") { dispatch_type<tsl::simd<double, tsl::neon>>(); }
+TEMPLATE_TEST_CASE("Sum and Average, neon", "[neon]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t,
+                   int64_t, float, double) {
+  SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::neon>>(); }
 }
 #endif
