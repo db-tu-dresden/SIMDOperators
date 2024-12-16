@@ -48,14 +48,15 @@ namespace tuddbs {
 
     /* Reducing Operations on a single column, e.g. sum, avg */
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end) {
-      const size_t element_count = p_end - p_data;
-      const size_t scalar_remainder = element_count % SimdStyle::vector_element_count();
+      const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data, p_end);
+      const auto scalar_end = tuddbs::iter_end(p_data, p_end);
+      const size_t element_count = scalar_end - p_data;
 
       reg_t res_vec = tsl::set1<SimdStyle>(0);
       if constexpr (std::is_floating_point_v<base_t>) {
         // This is a SIMDified version of the Kahan summation
         reg_t error_vec = tsl::set1<SimdStyle>(0);
-        for (; p_data + SimdStyle::vector_element_count() <= p_end; p_data += SimdStyle::vector_element_count()) {
+        for (; p_data != simd_end; p_data += SimdStyle::vector_element_count()) {
           reg_t vals = tsl::loadu<SimdStyle>(p_data);
           vals = tsl::sub<SimdStyle>(vals, error_vec);
           reg_t buffer = tsl::add<SimdStyle>(res_vec, vals);
@@ -63,7 +64,7 @@ namespace tuddbs {
           res_vec = buffer;
         }
       } else {
-        for (; p_data + SimdStyle::vector_element_count() <= p_end; p_data += SimdStyle::vector_element_count()) {
+        for (; p_data != simd_end; p_data += SimdStyle::vector_element_count()) {
           res_vec = tsl::add<SimdStyle>(res_vec, tsl::loadu<SimdStyle>(p_data));
         }
       }
@@ -73,9 +74,9 @@ namespace tuddbs {
 
       if constexpr (std::is_floating_point_v<base_t>) {
         base_t error = static_cast<base_t>(0.0);
-        for (size_t i = 0; i < scalar_remainder; ++i) {
+        for (; p_data != scalar_end; p_data++) {
           // This is a scalar version of the Kahan summation
-          base_t y = *p_data++ - error;
+          base_t y = *p_data - error;
           base_t t = res_scalar + y;
           error = (t - res_scalar) - y;
           res_scalar = t;
@@ -85,8 +86,8 @@ namespace tuddbs {
         base_t y = vec_res - error;
         res_scalar += y;
       } else {
-        for (size_t i = 0; i < scalar_remainder; ++i) {
-          res_scalar += *p_data++;
+        for (; p_data != scalar_end; p_data++) {
+          res_scalar += *p_data;
         }
         res_scalar += tsl::hadd<SimdStyle>(res_vec);
       }
@@ -107,16 +108,18 @@ namespace tuddbs {
     /* Combining two columns element-wise, e.g. add, sub, div, mul */
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data1, SimdOpsIterableOrSizeT auto p_end1,
                     SimdOpsIterable auto p_data2) {
-      const size_t scalar_remainder = (p_end1 - p_data1) % SimdStyle::vector_element_count();
-      for (; p_data1 + SimdStyle::vector_element_count() <= p_end1; p_data1 += SimdStyle::vector_element_count(),
-                                                                    p_data2 += SimdStyle::vector_element_count(),
-                                                                    p_result += SimdStyle::vector_element_count()) {
+      const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data1, p_end1);
+      const auto scalar_end = tuddbs::iter_end(p_data1, p_end1);
+      for (; p_data1 != simd_end; p_data1 += SimdStyle::vector_element_count(),
+                                  p_data2 += SimdStyle::vector_element_count(),
+                                  p_result += SimdStyle::vector_element_count()) {
         const auto vals1 = tsl::loadu<SimdStyle>(p_data1);
         const auto vals2 = tsl::loadu<SimdStyle>(p_data2);
         tsl::storeu<SimdStyle>(p_result, calc(vals1, vals2));
       }
-      for (size_t i = 0; i < scalar_remainder; ++i) {
-        *p_result++ = calc<tsl::simd<typename SimdStyle::base_type, tsl::scalar>>(*p_data1++, *p_data2++);
+      // Process the scalar remainder
+      for (; p_data1 != scalar_end; p_data1++, p_data2++) {
+        *p_result++ = calc<tsl::simd<typename SimdStyle::base_type, tsl::scalar>>(*p_data1, *p_data2);
       }
     }
 
