@@ -46,11 +46,10 @@ namespace tuddbs {
 
     explicit Arithmetic() {}
 
-    /* Reducing Operations on a single column, e.g. sum, avg */
+    /* Reducing Operations on a single column, e.g., sum, avg */
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end) {
       const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data, p_end);
       const auto scalar_end = tuddbs::iter_end(p_data, p_end);
-      const size_t element_count = scalar_end - p_data;
 
       reg_t res_vec = tsl::set1<SimdStyle>(0);
       if constexpr (std::is_floating_point_v<base_t>) {
@@ -95,6 +94,7 @@ namespace tuddbs {
       if constexpr (has_hint<HintSet, tuddbs::hints::arithmetic::sum>) {
         *p_result = res_scalar;
       } else if constexpr (has_hint<HintSet, tuddbs::hints::arithmetic::average>) {
+        const size_t element_count = scalar_end - p_data;
         if constexpr (std::is_floating_point_v<base_t>) {
           *p_result = res_scalar / element_count;
         } else {
@@ -105,7 +105,7 @@ namespace tuddbs {
       }
     }
 
-    /* Combining two columns element-wise, e.g. add, sub, div, mul */
+    /* Combining two columns element-wise, e.g., add, sub, div, mul */
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data1, SimdOpsIterableOrSizeT auto p_end1,
                     SimdOpsIterable auto p_data2) {
       const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data1, p_end1);
