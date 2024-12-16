@@ -1,8 +1,22 @@
 # create_test(
-#   TARGET_NAME select_test
-#   SRC_FILES algorithms/dbops/select_test.cpp
-#   INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+# TARGET_NAME select_test
+# SRC_FILES algorithms/dbops/select_test.cpp
+# INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
 # )
+
+create_test(
+  TARGET_NAME arithmetic_test_1col
+  SRC_FILES algorithms/dbops/arithmetic_test_1col.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
+
+create_test(
+  TARGET_NAME arithmetic_test_2col
+  SRC_FILES algorithms/dbops/arithmetic_test_2col.cpp
+  INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+  LIBRARIES pthread
+)
 
 create_test(
   TARGET_NAME groupby_test
