@@ -56,12 +56,19 @@ template <class HintSet, class SimdStyle, bool make_negative, typename ret_t = t
 ret_t getTestVal(const size_t seed = 13371337) {
   ret_t max_val;
   if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::add>) {
+    // Since we add two values, we prevent an overflow by drawing a random number up until the half of the maximum
+    // representable value
     max_val = std::numeric_limits<ret_t>::max() / 2;
   } else if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::sub>) {
+    // We subtract the number from itself, thus it can be any value
     max_val = std::numeric_limits<ret_t>::max();
   } else if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::div>) {
+    // We multiply the base value with itself, to divide it by itself. To prevent an overflow, the maximum allowed value
+    // is the square root of the numeric maximum.
     max_val = std::sqrt(std::numeric_limits<ret_t>::max());
   } else if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::mul>) {
+    // Multiplying the value with itself must not overflow, thus we can only draw up until the square root of the
+    // numeric maximum.
     max_val = std::sqrt(std::numeric_limits<ret_t>::max());
   } else {
     throw std::runtime_error("getTestVal: No known arithmetic given. Implement me for: " + tsl::type_name<HintSet>());
@@ -77,6 +84,7 @@ T getExpectedVal(const T testVal) {
   } else if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::sub>) {
     return 0;
   } else if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::div>) {
+    // This is a special case. We provide the squared base value as operand for the first column.
     return testVal * testVal;
   } else if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::mul>) {
     return testVal * testVal;
@@ -93,6 +101,9 @@ TestData<T> getTestAndResultValue(const size_t seed) {
   const T expected = getExpectedVal<HintSet>(testVal);
   TestData<T> values;
   if constexpr (tuddbs::has_hint<HintSet, tuddbs::hints::arithmetic::div>) {
+    // The test value is squared first. This result is later SIMDified divided elementwise, thus the expected value is
+    // the first column operand, such that we get the actual base value as result. This is a little workaround to
+    // prevent hiccups with integer values.
     values.col1_value = expected;
     values.col2_value = testVal;
     values.expected_result = testVal;
@@ -118,6 +129,7 @@ bool calc(const T testval1, const T testval2, const T expected_result, const siz
   }
 
   arithmetic_t perform;
+  // This tests whether the simd_iter_end and scalar_end versions of the implementation work as intended
   if constexpr (use_pointer_as_end) {
     perform(result, data1, data1 + elements, data2);
   } else {
@@ -126,6 +138,7 @@ bool calc(const T testval1, const T testval2, const T expected_result, const siz
 
   bool success = true;
   for (size_t i = 0; i < elements; ++i) {
+    // For float and double, we allow for approximate equality. For integer types this default to exact equality.
     if (!approximate_equality(result[i], expected_result)) {
       std::cout << "Wrong value at index " << i << ". Is: " << +result[i] << " but should be: " << +expected_result
                 << std::endl;
@@ -155,6 +168,7 @@ void test(const size_t elements, const size_t seed = 0) {
     REQUIRE(calc<arithmetic_t, SimdStyle, !use_pointer_as_end>(testData_pos.col1_value, testData_pos.col2_value,
                                                                testData_pos.expected_result, elements));
 
+    // Negative numbers are only tested for signed integral or floating point types
     if constexpr (std::is_signed_v<base_t>) {
       const TestData<base_t> testData_neg = getTestAndResultValue<HintSet, SimdStyle, make_negative>(seed);
       REQUIRE(calc<arithmetic_t, SimdStyle, use_pointer_as_end>(testData_neg.col1_value, testData_neg.col2_value,

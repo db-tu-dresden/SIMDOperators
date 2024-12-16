@@ -46,6 +46,9 @@ bool calc(const size_t elements, const size_t seed = 0) {
   cpu_executor exec;
   auto data = exec.allocate<T>(elements, 64);
   T result_sum;
+
+  // To prevent strange behavior when calculating an average for float but store it in a double, we default to double as
+  // result wrapper. This allows for easier approximate equality checking.
   using avg_t = std::conditional_t<std::is_floating_point_v<T>, T, double>;
   avg_t result_avg;
 
@@ -74,6 +77,8 @@ bool calc(const size_t elements, const size_t seed = 0) {
   const T expected_sum = val * elements;
   const avg_t expected_avg = val;
   bool success = true;
+
+  // For float and double, we allow for approximate equality. For integer types this default to exact equality.
   if (!approximate_equality<T>(result_sum, expected_sum)) {
     std::cout << "Wrong sum. Is: " << +result_sum << " but should be: " << +expected_sum << std::endl;
     success = false;
@@ -97,6 +102,8 @@ void test(const size_t elements, const size_t seed = 0) {
 
   REQUIRE(calc<SimdStyle, use_positive_value, use_pointer_as_end>(elements, seed));
   REQUIRE(calc<SimdStyle, use_positive_value, !use_pointer_as_end>(elements, seed));
+
+  // Negative numbers are only tested for signed integral or floating point types
   if constexpr (std::is_signed_v<typename SimdStyle::base_type>) {
     REQUIRE(calc<SimdStyle, !use_positive_value, use_pointer_as_end>(elements, seed));
     REQUIRE(calc<SimdStyle, !use_positive_value, !use_pointer_as_end>(elements, seed));
@@ -115,6 +122,9 @@ bool dispatch_type() {
   std::cout << "  " << tsl::type_name<typename SimdStyle::base_type>() << "..." << std::endl;
   bool all_good = true;
 
+  // This is a general issue: We should always sum in [u]int64_t integral types and double for floating point values.
+  // This requires an implementation of convert_up for all valid combinations and re-implementing the sum/average
+  // accordingly.
   if constexpr (is_i8) {
     std::cout << "[WARNING] int8 is not necassairly processed with avx2 or avx512. We need to add a convert_up "
                  "implementation for all data types, such that we can perform the sum operation on the most largest "
