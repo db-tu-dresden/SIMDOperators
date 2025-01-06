@@ -20,12 +20,12 @@ using uniform_distribution = typename std::conditional_t<
   typename std::conditional_t<std::is_integral_v<D>, std::uniform_int_distribution<D>, void>>;
 
 template <typename T>
-T get_random_val(size_t seed = 0) {
+T get_random_val(size_t seed = 0, size_t dist_low = 1, size_t dist_high = 2) {
   if (seed == 0) {
     seed = 13371337;
   }
   std::mt19937_64 mt(seed);
-  uniform_distribution<T> dist(1, 2);
+  uniform_distribution<T> dist(dist_low, dist_high);
   return dist(mt);
 }
 
@@ -100,6 +100,9 @@ template <class SimdStyle, bool positive_value, bool ptr_end, typename T = SimdS
 bool calc_with_valid_masks(const size_t elements, const size_t seed = 0) {
   using cpu_executor = tsl::executor<tsl::runtime::cpu>;
   cpu_executor exec;
+  if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+    std::cout << "NOW" << std::endl;
+  }
   auto data = exec.allocate<T>(elements, 64);
   auto valid_masks = exec.allocate<typename SimdStyle::imask_type>(elements, 64);
   T result_sum;
@@ -110,14 +113,15 @@ bool calc_with_valid_masks(const size_t elements, const size_t seed = 0) {
   avg_t result_avg;
 
   T val = get_random_val<T>(seed);
-  typename SimdStyle::imask_type mask = get_random_val<typename SimdStyle::imask_type>(seed);
+  typename SimdStyle::imask_type shift_mask =
+    get_random_val<typename SimdStyle::imask_type>(seed, 0, SimdStyle::vector_element_count() - 1);
 
   if constexpr (!positive_value) {
     val *= -1;
   }
   for (size_t i = 0; i < elements; ++i) {
     data[i] = val;
-    valid_masks[i] = 0b10;  // mask;
+    valid_masks[i] = (i & 0b1) << shift_mask;  // mask;
   }
 
   size_t valid_count = 0;
@@ -127,20 +131,12 @@ bool calc_with_valid_masks(const size_t elements, const size_t seed = 0) {
     size_t remainder_start = elements - remainder;
     size_t idx = 0;
     for (size_t i = 0; i < remainder_start; i += SimdStyle::vector_element_count(), ++idx) {
-      // std::cout << "valid_count (old) = " << valid_count << std::endl;
-      // std::cout << "mask_data[" << i << ":" << i + 8 << "] = " << std::bitset<8>(mask_data[idx]) << std::endl;
       valid_count += std::bitset<SimdStyle::vector_element_count()>(mask_data[idx]).count();
-      // std::cout << "valid_count (new) = " << valid_count << std::endl;
     }
     if (remainder != 0) {
-      // std::cout << "Remainder: " << std::endl;
-      // std::cout << "mask_data[" << idx * 8 << ":" << (idx * 8) + 8 << "] = " << std::bitset<8>(mask_data[idx])
-      // << std::endl;
       auto last_mask = std::bitset<SimdStyle::vector_element_count()>(mask_data[idx]);
       for (size_t i = 0; i < remainder; ++i) {
-        // std::cout << "valid_count (old) = " << valid_count << std::endl;
         valid_count += last_mask[i];
-        // std::cout << "valid_count (new) = " << valid_count << std::endl;
       }
     }
   }
@@ -152,32 +148,32 @@ bool calc_with_valid_masks(const size_t elements, const size_t seed = 0) {
     summation(&result_sum, data, elements, valid_masks);
   }
 
-  // tuddbs::col_bm_average_t<SimdStyle> averager;
-  // if constexpr (ptr_end) {
-  //   averager(&result_avg, data, data + elements, valid_masks);
-  // } else {
-  //   averager(&result_avg, data, elements, valid_masks);
-  // }
+  tuddbs::col_bm_average_t<SimdStyle> averager;
+  if constexpr (ptr_end) {
+    averager(&result_avg, data, data + elements, valid_masks);
+  } else {
+    averager(&result_avg, data, elements, valid_masks);
+  }
 
   const T expected_sum = val * valid_count;
-  const avg_t expected_avg = val;
+  const avg_t expected_avg = expected_sum / static_cast<avg_t>(valid_count);
   bool success = true;
 
   // For float and double, we allow for approximate equality. For integer types this default to exact equality.
   if (!approximate_equality<T>(result_sum, expected_sum)) {
     std::cout << "Wrong sum. Is: " << +result_sum << " but should be: " << +expected_sum << std::endl;
     std::cout << "\t\tValue: " << +val << ". Elements: " << elements << ". Valid count: " << valid_count << std::endl;
-    std::cout << "\t\tMASK value: " << std::bitset<sizeof(typename SimdStyle::imask_type) * CHAR_BIT>{mask}
+    std::cout << "\t\tMASK shift value: " << std::bitset<sizeof(typename SimdStyle::imask_type) * CHAR_BIT>{shift_mask}
               << std::endl;
     success = false;
   }
-  // if (!approximate_equality(result_avg, expected_avg)) {
-  //   std::cout << (positive_value ? "[positive]" : "[nevative]") << " Wrong avg. Is: " << +result_avg
-  //             << " but should be: " << +expected_avg << " my sum was " << +result_sum << "(expected " <<
-  //             +expected_sum
-  //             << ") and elements: " << elements << std::endl;
-  //   success = false;
-  // }
+  if (!approximate_equality(result_avg, expected_avg)) {
+    std::cout << (positive_value ? "[positive]" : "[nevative]") << " Wrong avg. Is: " << +result_avg
+              << " but should be: " << +expected_avg << " my sum was " << +result_sum << "(expected " << +expected_sum
+              << ") and elements: " << elements << std::endl;
+    std::cout << "\t\tValue: " << +val << ". Elements: " << elements << ". Valid count: " << valid_count << std::endl;
+    success = false;
+  }
 
   exec.deallocate(valid_masks);
   exec.deallocate(data);
@@ -192,19 +188,19 @@ void test(const size_t elements, const size_t seed = 0) {
   constexpr bool use_positive_value = true;
   constexpr bool use_pointer_as_end = true;
 
-  // REQUIRE(calc<SimdStyle, use_positive_value, use_pointer_as_end>(elements, seed));
-  // REQUIRE(calc<SimdStyle, use_positive_value, !use_pointer_as_end>(elements, seed));
+  REQUIRE(calc<SimdStyle, use_positive_value, use_pointer_as_end>(elements, seed));
+  REQUIRE(calc<SimdStyle, use_positive_value, !use_pointer_as_end>(elements, seed));
 
   REQUIRE(calc_with_valid_masks<SimdStyle, use_positive_value, use_pointer_as_end>(elements, seed));
   REQUIRE(calc_with_valid_masks<SimdStyle, use_positive_value, !use_pointer_as_end>(elements, seed));
 
   // Negative numbers are only tested for signed integral or floating point types
   if constexpr (std::is_signed_v<typename SimdStyle::base_type>) {
-    // REQUIRE(calc<SimdStyle, !use_positive_value, use_pointer_as_end>(elements, seed));
-    // REQUIRE(calc<SimdStyle, !use_positive_value, !use_pointer_as_end>(elements, seed));
+    REQUIRE(calc<SimdStyle, !use_positive_value, use_pointer_as_end>(elements, seed));
+    REQUIRE(calc<SimdStyle, !use_positive_value, !use_pointer_as_end>(elements, seed));
 
-    // REQUIRE(calc_with_valid_masks<SimdStyle, !use_positive_value, use_pointer_as_end>(elements, seed));
-    // REQUIRE(calc_with_valid_masks<SimdStyle, !use_positive_value, !use_pointer_as_end>(elements, seed));
+    REQUIRE(calc_with_valid_masks<SimdStyle, !use_positive_value, use_pointer_as_end>(elements, seed));
+    REQUIRE(calc_with_valid_masks<SimdStyle, !use_positive_value, !use_pointer_as_end>(elements, seed));
   }
 }
 
@@ -229,10 +225,14 @@ bool dispatch_type() {
                  "data type, i.e. 64bit int or double."
               << std::endl;
     const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    // const size_t seed = 1736163034228076268;
+    std::cout << "Seed: " << seed << std::endl;
     test<SimdStyle>(elements, seed);
   } else {
     for (size_t i = 0; i < SimdStyle::vector_element_count(); ++i) {
       const size_t seed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+      // const size_t seed = 1736163034228076268;
+      std::cout << "Seed: " << seed << std::endl;
       test<SimdStyle>(elements + i, seed);
     }
   }
