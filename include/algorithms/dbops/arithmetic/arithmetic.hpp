@@ -123,11 +123,6 @@ namespace tuddbs {
                     SimdOpsIterable auto p_valid_masks, activate_for_bit_mask<HS> = {}) {
       using CountSimdStyle = typename SimdStyle::template transform_extension<typename SimdStyle::offset_base_type>;
 
-      if constexpr (std::is_same_v<typename SimdStyle::base_type, float> ||
-                    std::is_same_v<typename SimdStyle::base_type, double>) {
-        std::cout << "NOW" << std::endl;
-      }
-
       const auto simd_end = tuddbs::simd_iter_end<SimdStyle>(p_data, p_end);
       const auto scalar_end = tuddbs::iter_end(p_data, p_end);
       auto valid_masks = reinterpret_iterable<typename SimdStyle::imask_type *>(p_valid_masks);
@@ -212,7 +207,9 @@ namespace tuddbs {
       }
     }
 
-    /* Combining two columns element-wise, e.g., add, sub, div, mul */
+    /* Combining two columns element-wise, e.g., add, sub, div, mul
+     * There is no need for bitmasks, as we assume columns to be materialized prior to calculation.
+     */
     template <typename HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data1, SimdOpsIterableOrSizeT auto p_end1,
                     SimdOpsIterable auto p_data2, activate_for_position_list<HS> = {}) {
@@ -249,16 +246,20 @@ namespace tuddbs {
   };
 
   template <typename SimdStyle>
-  using col_adder_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>>;
+  using col_adder_t = tuddbs::Arithmetic<
+    SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add, tuddbs::hints::intermediate::position_list>>;
 
   template <typename SimdStyle>
-  using col_subtractor_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>>;
+  using col_subtractor_t = tuddbs::Arithmetic<
+    SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub, tuddbs::hints::intermediate::position_list>>;
 
   template <typename SimdStyle>
-  using col_multiplier_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>>;
+  using col_multiplier_t = tuddbs::Arithmetic<
+    SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul, tuddbs::hints::intermediate::position_list>>;
 
   template <typename SimdStyle>
-  using col_divider_t = tuddbs::Arithmetic<SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>>;
+  using col_divider_t = tuddbs::Arithmetic<
+    SimdStyle, tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div, tuddbs::hints::intermediate::position_list>>;
 
   template <typename SimdStyle>
   using col_sum_t = tuddbs::Arithmetic<

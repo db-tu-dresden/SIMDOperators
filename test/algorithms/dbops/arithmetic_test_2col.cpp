@@ -191,44 +191,44 @@ void dispatch_type(const size_t elements) {
 
 TEMPLATE_TEST_CASE("Add 2 columns, scalar", "[add][scalar]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::scalar>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Subtract 2 columns, scalar", "[sub][scalar]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t,
                    int16_t, int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::scalar>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Divide 2 columns, scalar", "[div][scalar]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::scalar>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Multiply 2 columns, scalar", "[mul][scalar]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t,
                    int16_t, int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::scalar>, HintSet>(element_base_count); }
 }
 
 #ifdef TSL_CONTAINS_SSE
 TEMPLATE_TEST_CASE("Add 2 columns, sse", "[add][sse]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t,
                    int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::sse>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Subtract 2 columns, sse", "[sub][sse]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::sse>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Divide 2 columns, sse", "[div][sse]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::sse>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Multiply 2 columns, sse", "[mul][sse]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::sse>, HintSet>(element_base_count); }
 }
 #endif
@@ -236,22 +236,22 @@ TEMPLATE_TEST_CASE("Multiply 2 columns, sse", "[mul][sse]", uint8_t, uint16_t, u
 #ifdef TSL_CONTAINS_AVX2
 TEMPLATE_TEST_CASE("Add 2 columns, avx2", "[add][avx2]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx2>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Subtract 2 columns, avx2", "[sub][avx2]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx2>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Divide 2 columns, avx2", "[div][avx2]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx2>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Multiply 2 columns, avx2", "[mul][avx2]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx2>, HintSet>(element_base_count); }
 }
 #endif
@@ -259,22 +259,22 @@ TEMPLATE_TEST_CASE("Multiply 2 columns, avx2", "[mul][avx2]", uint8_t, uint16_t,
 #ifdef TSL_CONTAINS_AVX512
 TEMPLATE_TEST_CASE("Add 2 columns, avx512", "[add][avx512]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx512>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Subtract 2 columns, avx512", "[sub][avx512]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t,
                    int16_t, int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx512>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Divide 2 columns, avx512", "[div][avx512]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx512>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Multiply 2 columns, avx512", "[mul][avx512]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t,
                    int16_t, int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx512>, HintSet>(element_base_count); }
 }
 #endif
@@ -282,22 +282,22 @@ TEMPLATE_TEST_CASE("Multiply 2 columns, avx512", "[mul][avx512]", uint8_t, uint1
 #ifdef TSL_CONTAINS_NEON
 TEMPLATE_TEST_CASE("Add 2 columns, neon", "[add][neon]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::add, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::neon>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Subtract 2 columns, neon", "[sub][neon]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::sub, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::neon>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Divide 2 columns, neon", "[div][neon]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::div, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::neon>, HintSet>(element_base_count); }
 }
 TEMPLATE_TEST_CASE("Multiply 2 columns, neon", "[mul][neon]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
                    int32_t, int64_t, float, double) {
-  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul>;
+  using HintSet = tuddbs::OperatorHintSet<tuddbs::hints::arithmetic::mul, tuddbs::hints::intermediate::position_list>;
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::neon>, HintSet>(element_base_count); }
 }
 #endif
