@@ -94,6 +94,7 @@ namespace tuddbs {
   }
 }  // namespace tuddbs
 
+#ifdef TSL_CONTAINS_SSE
 TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][stl-seq]") {
   std::cout << "[stl-seq] uint64_t sequential" << std::endl;
   using base_t = uint64_t;
@@ -224,7 +225,9 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse-seq]") 
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif
 
+#ifdef TSL_CONTAINS_AVX2
 TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx2-seq]") {
   std::cout << "[avx2] uint64_t sequential execution" << std::endl;
   using base_t = uint64_t;
@@ -279,7 +282,9 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx2-seq]")
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif
 
+#ifdef TSL_CONTAINS_SSE
 // #### Sequential Merge
 TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
   std::cout << "[sse] uint64_t with Cascading Merge" << std::endl;
@@ -376,7 +381,9 @@ TEST_CASE("GroupBy for uint64_t with sse", "[cpu][groupby][uint64_t][sse]") {
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif
 
+#ifdef TSL_CONTAINS_AVX2
 TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx2]") {
   std::cout << "[avx2] uint64_t with Cascading Merge" << std::endl;
 
@@ -472,8 +479,10 @@ TEST_CASE("GroupBy for uint64_t with avx", "[cpu][groupby][uint64_t][avx2]") {
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif
 
 // #### Merge Tree - Sequential
+#ifdef TSL_CONTAINS_SSE
 TEST_CASE("GroupBy for uint64_t with sse / Merge Tree - Sequential", "[cpu][groupby-tree-seq][uint64_t][sse]") {
   std::cout << "[sse] uint64_t with Tree-Merge (Sequential)" << std::endl;
   using base_t = uint64_t;
@@ -620,7 +629,9 @@ TEST_CASE("GroupBy for uint64_t with sse / Merge Tree - Sequential", "[cpu][grou
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif
 
+#ifdef TSL_CONTAINS_AVX2
 TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Sequential", "[cpu][groupby-tree-seq][uint64_t][avx2]") {
   std::cout << "[avx2] uint64_t with Tree-Merge (Sequential)" << std::endl;
   using base_t = uint64_t;
@@ -767,8 +778,10 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Sequential", "[cpu][gro
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif
 
 // Merge Tree - Parallelized
+#ifdef TSL_CONTAINS_SSE
 TEST_CASE("GroupBy for uint64_t with sse / Merge Tree - Parallel", "[cpu][groupby-tree-par][uint64_t][sse]") {
   std::cout << "[sse] uint64_t with Tree-Merge (Parallel)" << std::endl;
   using base_t = uint64_t;
@@ -932,7 +945,9 @@ TEST_CASE("GroupBy for uint64_t with sse / Merge Tree - Parallel", "[cpu][groupb
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif
 
+#ifdef TSL_CONTAINS_AVX2
 TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][groupby-tree-par][uint64_t][avx2]") {
   std::cout << "[avx2] uint64_t with Tree-Merge (Parallel)" << std::endl;
   using base_t = uint64_t;
@@ -1110,3 +1125,4 @@ TEST_CASE("GroupBy for uint64_t with avx2 / Merge Tree - Parallel", "[cpu][group
   tuddbs::print_timings(BENCHMARK_ITERATIONS);
   tuddbs::bench_timings.clear();
 }
+#endif

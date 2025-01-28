@@ -180,6 +180,7 @@ struct group_aggregate_result_set_t {
   ~group_aggregate_result_set_t() {}
 };
 
+#ifdef TSL_CONTAINS_SSE
 TEST_CASE("GroupBy-Sum for uint64_t with sse, single thread", "[cpu][groupby_sum][uint64_t][sse][sequential]") {
   std::cout << "[sse] uint64_t with single thread" << std::endl;
   using key_t = uint64_t;
@@ -237,6 +238,9 @@ TEST_CASE("GroupBy-Sum for uint64_t with sse, single thread", "[cpu][groupby_sum
                                                    data_columns.value_sink.cbegin())));
   }
 }
+#endif
+
+#ifdef TSL_CONTAINS_AVX2
 TEST_CASE("GroupBy-Sum for uint64_t with avx, single thread", "[cpu][groupby_sum][uint64_t][avx][sequential]") {
   std::cout << "[avx] uint64_t with single thread" << std::endl;
   using key_t = uint64_t;
@@ -294,3 +298,4 @@ TEST_CASE("GroupBy-Sum for uint64_t with avx, single thread", "[cpu][groupby_sum
                                                    data_columns.value_sink.cbegin())));
   }
 }
+#endif

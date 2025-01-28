@@ -16,6 +16,7 @@
 #include "algorithms/dbops/join/hash_join.hpp"
 #include "algorithms/utils/hashing.hpp"
 #include "datastructures/column.hpp"
+#include "tsl.hpp"
 
 #define ELEMENT_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DATA_ELEMENT_COUNT_A (1 << 20)
@@ -39,12 +40,16 @@ namespace tuddbs {
 
 template <typename T>
 auto join_alloc_fn(size_t i) -> T * {
-  return static_cast<T *>(_mm_malloc(i * sizeof(T), 64));
+  using cpu_executor = tsl::executor<tsl::runtime::cpu>;
+  cpu_executor exec;
+  return exec.allocate<T>(i, 64);
 }
 
 template <typename T>
 auto join_dealloc_fn(T *ptr) {
-  _mm_free(ptr);
+  using cpu_executor = tsl::executor<tsl::runtime::cpu>;
+  cpu_executor exec;
+  exec.deallocate(ptr);
 }
 
 template <typename T>

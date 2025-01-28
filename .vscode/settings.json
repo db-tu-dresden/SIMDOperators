@@ -66,7 +66,8 @@
     "valarray": "cpp",
     "text_encoding": "cpp",
     "climits": "cpp",
-    "iostream": "cpp"
+    "iostream": "cpp",
+    "chrono": "cpp"
   },
   "cmake.options.statusBarVisibility": "visible",
   "C_Cpp.default.compilerPath": "/usr/bin/g++"
