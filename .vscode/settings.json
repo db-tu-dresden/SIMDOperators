@@ -67,7 +67,19 @@
     "text_encoding": "cpp",
     "climits": "cpp",
     "iostream": "cpp",
-    "chrono": "cpp"
+    "chrono": "cpp",
+    "condition_variable": "cpp",
+    "ctime": "cpp",
+    "cwctype": "cpp",
+    "map": "cpp",
+    "set": "cpp",
+    "ratio": "cpp",
+    "future": "cpp",
+    "iomanip": "cpp",
+    "mutex": "cpp",
+    "semaphore": "cpp",
+    "stop_token": "cpp",
+    "variant": "cpp"
   },
   "cmake.options.statusBarVisibility": "visible",
   "C_Cpp.default.compilerPath": "/usr/bin/g++"

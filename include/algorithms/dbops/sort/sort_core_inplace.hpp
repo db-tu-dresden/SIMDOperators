@@ -613,7 +613,7 @@ namespace tuddbs {
         }
         return ClusteredRange{static_cast<size_t>(left_start), static_cast<size_t>(right_start)};
       } else {
-        static_assert(false,
+        static_assert(!std::is_same_v<SortStateT, SortStateT>,
                       "SortStateT must be of type (DefaultSortSTate, LeafClusteredSortState, TailClusteredSortState)");
       }
     }
