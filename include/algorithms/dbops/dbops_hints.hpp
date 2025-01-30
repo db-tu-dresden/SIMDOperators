@@ -44,7 +44,16 @@ namespace tuddbs {
       struct dense_bit_mask {};
 
     }  // namespace intermediate
-  }    // namespace hints
+
+    namespace arithmetic {
+      struct add {};
+      struct sub {};
+      struct div {};
+      struct mul {};
+      struct sum {};
+      struct average {};
+    }  // namespace arithmetic
+  }  // namespace hints
 
   template <typename HS>
   struct intermediate_hint_helper_t {
@@ -56,6 +65,18 @@ namespace tuddbs {
     constexpr static bool use_position_list = has_hint<HS, hints::intermediate::position_list>;
   };
 
+  template <typename HS>
+  struct arithmetic_hint_helper_t {
+    // static_assert(count_hints<HS, hints::intermediate::dense_bit_mask, hints::intermediate::bit_mask,
+    // hints::intermediate::position_list> <= 1,
+    // "Intermediate type can be only one of the supported types");
+    constexpr static bool perform_add = has_hint<HS, hints::arithmetic::add>;
+    constexpr static bool perform_sub = has_hint<HS, hints::arithmetic::sub>;
+    constexpr static bool perform_div = has_hint<HS, hints::arithmetic::div>;
+    constexpr static bool perform_mul = has_hint<HS, hints::arithmetic::mul>;
+  };
+
+  /* Intermediates */
   template <typename HS, typename HintHelper = intermediate_hint_helper_t<HS>>
   using activate_for_dense_bit_mask =
     typename std::enable_if_t<HintHelper::use_dense_bitmask, hints::intermediate::dense_bit_mask>;
@@ -64,6 +85,19 @@ namespace tuddbs {
   template <typename HS, typename HintHelper = intermediate_hint_helper_t<HS>>
   using activate_for_position_list =
     typename std::enable_if_t<HintHelper::use_position_list, hints::intermediate::position_list>;
+
+  /* Arithmetics */
+  template <typename HS, typename HintHelper = arithmetic_hint_helper_t<HS>>
+  using activate_for_add = typename std::enable_if_t<HintHelper::perform_add, hints::arithmetic::add>;
+
+  template <typename HS, typename HintHelper = arithmetic_hint_helper_t<HS>>
+  using activate_for_sub = typename std::enable_if_t<HintHelper::perform_sub, hints::arithmetic::sub>;
+
+  template <typename HS, typename HintHelper = arithmetic_hint_helper_t<HS>>
+  using activate_for_div = typename std::enable_if_t<HintHelper::perform_div, hints::arithmetic::div>;
+
+  template <typename HS, typename HintHelper = arithmetic_hint_helper_t<HS>>
+  using activate_for_mul = typename std::enable_if_t<HintHelper::perform_mul, hints::arithmetic::mul>;
 
 }  // namespace tuddbs
 #endif
