@@ -86,7 +86,7 @@ namespace tuddbs {
       l_w += nb_low;
       r_w -= nb_high;
       tsl::compress_store<SimdStyle>(mask_gt, &data[r_w], val_reg);
-    };
+    }
 
     /**
      * @brief Compares a SIMD register from the dataset against a second SIMD register containing a pivot element.
@@ -127,7 +127,7 @@ namespace tuddbs {
       l_w += nb_low;
       r_w -= nb_high;
       tsl::compress_store<SimdStyle>(mask_gt, &data[r_w], val_reg);
-    };
+    }
 
     /**
      * @brief Recursive divide and conquer method to sort the given array. In each step, data will be sorted in 3

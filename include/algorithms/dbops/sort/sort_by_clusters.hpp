@@ -90,15 +90,21 @@ namespace tuddbs {
         DataT curr_value = p_data[m_idx[start_pos]];
         std::deque<tuddbs::Cluster> new_clusters;
         size_t curr_start = start_pos;
-        for (size_t i = start_pos + 1; i != end_pos; ++i) {
-          DataT run_value = p_data[m_idx[i]];
+        for (size_t j = start_pos + 1; j != end_pos; ++j) {
+          DataT run_value = p_data[m_idx[j]];
           if (run_value != curr_value) {
-            new_clusters.push_back(tuddbs::Cluster(curr_start, i - curr_start));
-            curr_start = i;
+            const size_t curr_run_len = (j - curr_start);
+            if (curr_run_len > 1) {
+              new_clusters.push_back(tuddbs::Cluster(curr_start, curr_run_len));
+            }
+            curr_start = j;
             curr_value = run_value;
           }
         }
-        new_clusters.emplace_back(tuddbs::Cluster(curr_start, end_pos - curr_start));
+        const size_t curr_run_len = end_pos - curr_start;
+        if (curr_run_len > 1) {
+          new_clusters.emplace_back(tuddbs::Cluster(curr_start, end_pos - curr_start));
+        }
 
         while (!new_clusters.empty()) {
           m_clusters->push_back(new_clusters.front());

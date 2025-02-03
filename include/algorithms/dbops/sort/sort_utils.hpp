@@ -49,7 +49,7 @@ namespace tuddbs {
     size_t start;
     size_t len;
 
-    Cluster(size_t s, size_t l) : start{s}, len{l} {}
+    Cluster(size_t s, size_t l) noexcept : start{s}, len{l} {} 
 
     bool operator<(const Cluster& other) const { return (this->start < other.start); }
     bool operator==(const Cluster& other) const { return (this->start == other.start) && (this->len == other.len); }
