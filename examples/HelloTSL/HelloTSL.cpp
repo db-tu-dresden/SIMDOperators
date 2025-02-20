@@ -26,7 +26,7 @@
 
 // Include the SIMD operators main header file.
 // This includes all operators present in the library.
-#include "tslintrin.hpp"
+#include "tsl.hpp"
 
 int main() {
   using namespace std;

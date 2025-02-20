@@ -32,7 +32,7 @@
 #include "algorithms/dbops/filter/filter_hints.hpp"
 #include "algorithms/utils/hinting.hpp"
 #include "iterable.hpp"
-#include "tslintrin.hpp"
+#include "tsl.hpp"
 
 namespace tuddbs {
   template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,

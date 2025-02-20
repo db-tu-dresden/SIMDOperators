@@ -27,7 +27,7 @@
 #include "algorithms/dbops/join/hash_join_hints.hpp"
 #include "algorithms/dbops/join/hash_join_simd_linear_probing.hpp"
 #include "algorithms/utils/hashing.hpp"
-#include "tslintrin.hpp"
+#include "tsl.hpp"
 
 namespace tuddbs {
 

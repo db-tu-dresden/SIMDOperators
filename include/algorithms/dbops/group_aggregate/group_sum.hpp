@@ -31,7 +31,7 @@
 #include "algorithms/utils/hashing.hpp"
 #include "algorithms/utils/hinting.hpp"
 #include "iterable.hpp"
-#include "tslintrin.hpp"
+#include "tsl.hpp"
 
 namespace tuddbs {
   template <tsl::VectorProcessingStyle _KeySimdStyle, tsl::TSLArithmetic _ValueType = typename _KeySimdStyle::base_type,

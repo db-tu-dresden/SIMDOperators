@@ -7,7 +7,7 @@
 #include "algorithms/dbops/filter/filter.hpp"
 #include "simdops_testing.hpp"
 #include "tslCPUrt.hpp"
-#include "tslintrin.hpp"
+#include "tsl.hpp"
 
 using namespace tuddbs;
 

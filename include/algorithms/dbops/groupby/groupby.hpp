@@ -28,7 +28,7 @@
 #include "algorithms/dbops/groupby/groupby_hints.hpp"
 #include "algorithms/dbops/groupby/groupby_simd_linear_displacement.hpp"
 #include "algorithms/utils/hashing.hpp"
-#include "tslintrin.hpp"
+#include "tsl.hpp"
 
 namespace tuddbs {
 
