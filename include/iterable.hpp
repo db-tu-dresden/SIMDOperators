@@ -36,7 +36,7 @@ namespace tuddbs {
     namespace memory {
       struct aligned {};
     }  // namespace memory
-  }    // namespace hints
+  }  // namespace hints
 
   /**
    * @concept Integral
@@ -185,6 +185,14 @@ namespace tuddbs {
       return static_cast<To>(data);
     } else {
       throw std::invalid_argument("Cannot convert");
+    }
+  }
+
+  constexpr static size_t iter_distance(SimdOpsIterable auto data, SimdOpsIterableOrSizeT auto end) {
+    if constexpr (std::is_unsigned_v<decltype(end)>) {
+      return end;
+    } else {
+      return end - data;
     }
   }
 

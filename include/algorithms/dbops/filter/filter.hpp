@@ -656,7 +656,7 @@ namespace tuddbs {
       auto const position_increment_reg = tsl::set1<ResultSimdStyle>(ResultSimdStyle::vector_element_count());
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
-      auto position_simd_end = (p_end - p_data) + start_position;
+      auto position_simd_end = iter_distance(p_data, simd_end) + start_position;
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
