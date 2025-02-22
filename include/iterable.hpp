@@ -177,10 +177,24 @@ namespace tuddbs {
     }
   }
 
+  template <typename To, typename From>
+  struct match_cv {
+    using To_ = std::decay_t<To>;
+    using c_type = std::conditional_t< std::is_const_v<From>, std::add_const_t<To_>, To_>;
+    using type = std::conditional_t<std::is_volatile_v<From>, std::add_volatile_t<c_type>, c_type>;
+  };
+
   template <tsl::TSLArithmeticPointer To, SimdOpsIterable From>
   constexpr auto reinterpret_iterable(From data) {
     if constexpr (std::is_pointer_v<std::decay_t<From>>) {
-      return reinterpret_cast<To>(data);
+      return reinterpret_cast<
+        std::add_pointer_t<
+          typename match_cv<
+            std::remove_pointer_t<To>, 
+            std::remove_pointer_t<From>
+          >::type 
+        >
+      >(data);
     } else if constexpr (std::is_convertible_v<From, To>) {
       return static_cast<To>(data);
     } else {

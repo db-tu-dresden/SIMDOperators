@@ -138,7 +138,7 @@ namespace tuddbs {
 
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterable auto p_end,
-                    SimdOpsIterable auto p_position_list, SimdOpsIterable auto p_position_list_end,
+                    SimdOpsIterable auto p_position_list, SimdOpsIterableOrSizeT auto p_position_list_end,
                     activate_for_position_list<HS> = {}) const noexcept -> decltype(p_result) {
       auto positions = reinterpret_iterable<ValidElementIterableType>(p_position_list);
       // Get the end of the data
@@ -157,7 +157,7 @@ namespace tuddbs {
           } else {
             current_positions = tsl::loadu<PositionalSimdStyle, Idof>(positions);
           }
-          auto const data = tsl::gather<SimdStyle, Idof>(p_data, current_positions);
+          auto const data = tsl::gather<SimdStyle>(p_data, current_positions);
           if constexpr (has_hint<HintSet, hints::memory::aligned>) {
             tsl::store<SimdStyle, Idof>(reinterpret_iterable<DataSinkType>(result), data);
           } else {
@@ -182,7 +182,7 @@ namespace tuddbs {
             } else {
               current_positions = tsl::loadu<PositionalSimdStyle, Idof>(positions);
             }
-            data_array[i] = tsl::gather<PositionalSimdStyle, Idof>(p_data, current_positions);
+            data_array[i] = tsl::gather<PositionalSimdStyle>(p_data, current_positions);
           }
           auto const data = tsl::convert_down<PositionalSimdStyle, SimdStyle, Idof>(data_array);
           if constexpr (has_hint<HintSet, hints::memory::aligned>) {
