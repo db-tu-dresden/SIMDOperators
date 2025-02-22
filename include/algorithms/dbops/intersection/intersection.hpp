@@ -133,8 +133,57 @@ namespace tuddbs {
     template <class HS = HintSet>
     auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_left_data,
                     SimdOpsIterableOrSizeT auto p_left_end, SimdOpsIterable auto p_right_data,
-                    activate_for_position_list<HS> = {}) -> DataSinkType {
-      throw std::runtime_error("Not implemented yet");
+                    SimdOpsIterableOrSizeT auto p_right_end, activate_for_position_list<HS> = {}) -> DataSinkType {
+      // throw std::runtime_error("Not implemented yet");
+      using reg_t = typename SimdStyle::register_type;
+      using mask_t = typename SimdStyle::imask_type;
+
+      mask_t mask = 0;
+      mask_t mask_gt = 0;
+      mask_t changed_left = 0;
+
+      auto const lhs_end = iter_end(p_left_data, p_left_end);
+      auto const rhs_end = iter_end(p_right_data, p_right_end);
+
+      reg_t lhs_data = tsl::loadu<SimdStyle, Idof>(p_left_data);
+      reg_t rhs_data = tsl::loadu<SimdStyle, Idof>(p_right_data);
+      mask_t full_hit = tsl::to_integral<SimdStyle, Idof>(tsl::equal<SimdStyle, Idof>(lhs_data, lhs_data));
+
+      while ((p_left_data < lhs_end) && (p_right_data < rhs_end - SimdStyle::vector_element_count())) {
+        mask = tsl::to_integral<SimdStyle, Idof>(tsl::equal<SimdStyle, Idof>(lhs_data, rhs_data));
+        mask_gt = tsl::to_integral<SimdStyle, Idof>(tsl::greater_than<SimdStyle, Idof>(lhs_data, rhs_data));
+
+        if (mask != 0) {
+          *p_result = *p_left_data;
+          p_result++;
+        }
+
+        if (mask_gt == 0) {
+          p_left_data++;
+          lhs_data = tsl::set1<SimdStyle, Idof>(*p_left_data);
+        } else {
+          if (mask_gt == full_hit) {
+            p_right_data += SimdStyle::vector_element_count();
+            rhs_data = tsl::loadu<SimdStyle, Idof>(p_right_data);
+          } else {
+            p_left_data++;
+            lhs_data = tsl::set1<SimdStyle, Idof>(*p_left_data);
+            p_right_data += tsl::mask_population_count<SimdStyle, Idof>(mask_gt);
+            rhs_data = tsl::loadu<SimdStyle, Idof>(p_right_data);
+          }
+        }
+      }
+      while ((p_left_data < lhs_end) && (p_right_data < rhs_end)) {
+        if (*p_left_data == *p_right_data) {
+          *p_result++ = *p_left_data++;
+          p_right_data++;
+        } else if (*p_left_data < *p_right_data) {
+          ++p_left_data;
+        } else {
+          ++p_right_data;
+        }
+      }
+      return p_result;
     }
   };
 }  // namespace tuddbs
