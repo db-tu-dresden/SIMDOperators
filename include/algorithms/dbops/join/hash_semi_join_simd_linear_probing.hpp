@@ -1,3 +1,20 @@
+// ------------------------------------------------------------------- //
+/*
+   This file is part of the SimdOperators Project.
+   Author(s): Johannes Pietrzyk.
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation, version 3.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 #pragma once
 
 #include <cassert>
@@ -303,7 +320,7 @@ namespace tuddbs {
 
   template <tsl::VectorProcessingStyle _SimdStyle, tsl::TSLArithmetic _PositionType,
             class HintSet = OperatorHintSet<hints::hashing::size_exp_2>, typename Idof = tsl::workaround>
-  struct Hash_Join_SIMD_Linear_Probing {
+  struct Hash_Semi_Join_RightSide_SIMD_Linear_Probing {
     using builder_t = Hash_Semi_Join_Build_RightSide_SIMD_Linear_Probing<_SimdStyle, HintSet, Idof>;
     using prober_t = Hash_Semi_Join_Probe_RightSide_SIMD_Linear_Probing<_SimdStyle, _PositionType, HintSet, Idof>;
   };
