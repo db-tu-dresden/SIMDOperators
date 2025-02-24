@@ -20,6 +20,10 @@
 #include <cassert>
 #include <climits>
 #include <type_traits>
+#include <algorithm>
+#include <stdexcept>
+#include <string>
+#include <iomanip>
 
 #include "algorithms/dbops/dbops_hints.hpp"
 #include "algorithms/dbops/join/hash_join_hints.hpp"
@@ -82,6 +86,8 @@ namespace tuddbs {
      * @return TSL_FORCE_INLINE
      */
     auto check_next_empty(size_t const bucket_index) noexcept -> int {
+      // std::cout << "Before check_next_empty" << std::endl;
+      // print();
       // first we divde the bucket index by 64 to get the right bucket
       auto const bitmask_idx_base = bucket_index >> 6;
       // then we calculate the offset of the bucket index in the bitmask
@@ -91,6 +97,7 @@ namespace tuddbs {
       // now we shift the bitmask to the right to get the bit we want to check
       auto const empty_buckets_bitmask = (bitmask >> bitmask_idx_offset) & m_bucket_empty_check;
       if (empty_buckets_bitmask == 0) {
+        // std::cout << "No empty bucket..." << std::endl;
         return -1;
       }
       // get the trailing zero count of the empty_buckets_bitmask
@@ -98,6 +105,8 @@ namespace tuddbs {
       auto const updated_empty_buckets_bitmask = (BucketFreeBitMaskType)1
                                                  << (first_empty_bucket_pos + bitmask_idx_offset);
       m_free_bucket_slot_bitset_sink[bitmask_idx_base] = bitmask & ~updated_empty_buckets_bitmask;
+      // std::cout << "After check_next_empty" << std::endl;
+      // print();
       return first_empty_bucket_pos;
     }
 
@@ -109,6 +118,8 @@ namespace tuddbs {
      * @return int 0 if nothing was changed, 1 if the bucket was set to occupied
      */
     auto set_occupied_bucket(size_t const bucket_index, size_t offset) noexcept -> int {
+      // std::cout << "Before set_occupied_bucket" << std::endl;
+      // print();
       // first we divde the bucket index by 64 to get the right bucket
       auto const bitmask_idx_base = bucket_index >> 6;
       // then we calculate the offset of the bucket index in the bitmask
@@ -116,6 +127,8 @@ namespace tuddbs {
       auto const bitmask = m_free_bucket_slot_bitset_sink[bitmask_idx_base];
       auto const updated_empty_buckets_bitmask = (BucketFreeBitMaskType)1 << (offset + bitmask_idx_offset);
       m_free_bucket_slot_bitset_sink[bitmask_idx_base] = bitmask & ~updated_empty_buckets_bitmask;
+      // std::cout << "After set_occupied_bucket" << std::endl;
+      // print();
       return (bitmask >> (bitmask_idx_base + offset)) & 1;
     }
 
@@ -126,7 +139,26 @@ namespace tuddbs {
         normalizer<SimdStyle, HintSet, Idof>::align_value(normalizer<SimdStyle, HintSet, Idof>::normalize_value(
           default_hasher<SimdStyle, Idof>::hash_value(key), m_bucket_count));
       typename SimdStyle::register_type map_reg;
+      auto const initial_lookup_position = lookup_position;
+      // bool wrapped_around = false;
       while (true) {
+        // if (lookup_position < initial_lookup_position) {
+          // wrapped_around = true;
+        // } else {
+        //   if (wrapped_around) {
+        //     std::cout << "Full iteration passed without being able to insert key. something went horribly wrong." << std::endl;
+        //     std::cout << "Key: " << key << std::endl;
+        //     std::cout << "Initial lookup position: " << initial_lookup_position << std::endl;
+        //     std::cout << "Bucket count: " << m_bucket_count << std::endl;
+        //     std::cout << "Unique values so far: " << key_count << std::endl;
+        //     print();
+        //     throw std::runtime_error("error while hash build");
+        //   }
+        // }
+        // if (key == 19940121) {
+        //   std::cout << "Key of interest! (" << key << ")" << std::endl;
+        //   print();
+        // }
         if (has_hint<HintSet, hints::memory::aligned>) {
           map_reg = tsl::load<SimdStyle, Idof>(m_key_sink + lookup_position);
         } else {
@@ -140,11 +172,13 @@ namespace tuddbs {
           auto const empty_bucket_position = check_next_empty(lookup_position);
           if (empty_bucket_position == -1) {
             // Key can not be inserted, move to the next probing location
+            // std::cout << "Key " << key << " not in Sink [" << lookup_position << ":" << lookup_position+ SimdStyle::vector_element_count() << "] Move forward." << std::endl;
             lookup_position = normalizer<SimdStyle, HintSet, Idof>::normalize_value(
               lookup_position + SimdStyle::vector_element_count(), m_bucket_count);
           } else {
             // Key can be inserted
             m_key_sink[lookup_position + empty_bucket_position] = key;
+            // std::cout << "Sink [" << lookup_position + empty_bucket_position << "] = " << key << std::endl;
             ++key_count;
             return;
           }
@@ -152,12 +186,41 @@ namespace tuddbs {
           // Key found
           auto const equal_key_offset = tsl::tzc<SimdStyle>(key_found_mask);
           key_count += set_occupied_bucket(lookup_position, equal_key_offset);
+          // std::cout << "Sink [" << lookup_position + equal_key_offset << "] already contained " << key << std::endl;
           return;
         }
       }
     }
 
    public:
+
+    auto print() const noexcept -> void {
+      for (size_t i = 0; i < m_bucket_count; ++i) {
+        auto const bitmask_idx_base = i >> 6;
+        auto const bitmask_idx_offset = i & 63;
+        auto const bitmask = m_free_bucket_slot_bitset_sink[bitmask_idx_base];
+
+        size_t before_count = ((bitmask_idx_offset+SimdStyle::vector_element_count()) > 64) ? 0 : 64-(bitmask_idx_offset+SimdStyle::vector_element_count());
+        size_t after_count = ((bitmask_idx_offset+SimdStyle::vector_element_count())> 64) ? (bitmask_idx_offset+SimdStyle::vector_element_count())-before_count-SimdStyle::vector_element_count() : 64-before_count-SimdStyle::vector_element_count();
+        auto empty_buckets_bitmask = (bitmask >> bitmask_idx_offset) & m_bucket_empty_check;
+        std::string before = (before_count > 0) ? std::string(before_count, '_') : "";
+        std::string after = (after_count > 0) ? std::string(after_count, '_'): "";
+        std::cout << "[" << std::setw(5) << i << "]: " << std::setw(15) << m_key_sink[i] << " | " << before;
+        if((bitmask_idx_offset+SimdStyle::vector_element_count())> 64) {
+          for (int i = bitmask_idx_offset; i < 64; ++i) {
+            std::cout << (empty_buckets_bitmask & 0b1);
+            empty_buckets_bitmask >>= 1;
+          }
+        } else {
+          std::cout << std::bitset<SimdStyle::vector_element_count()>{empty_buckets_bitmask};
+        }
+        std::cout << after << std::endl;
+      }
+    }
+
+    auto unique_keys_count() const noexcept -> size_t {
+      return key_count;
+    }
     /**
      * @brief
      *
@@ -167,7 +230,7 @@ namespace tuddbs {
      */
     static auto calculate_bucket_count(size_t const key_count,
                                        float const max_load = 0.6f) noexcept -> std::tuple<size_t, size_t> {
-      auto key_sink_min_size = (size_t)((float)key_count * max_load);
+      auto key_sink_min_size = (size_t)((float)key_count * (1.0f + max_load));
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         auto const bucket_count = (1 << (int)std::ceil(std::log2(key_sink_min_size)));
         auto const empty_bucket_bitset_count = bucket_count >> 6;
@@ -180,19 +243,17 @@ namespace tuddbs {
 
     Hash_Semi_Join_Build_RightSide_SIMD_Linear_Probing(KeySinkType p_key_sink,
                                                        BucketFreeSinkType p_free_bucket_slot_bitset_sink,
-                                                       size_t p_bucket_count) noexcept
+                                                       size_t p_bucket_count,
+                                                       size_t p_bitset_value_count) noexcept
       : m_key_sink(reinterpret_iterable<KeySinkType>(p_key_sink)),
         m_free_bucket_slot_bitset_sink(reinterpret_iterable<BucketFreeSinkType>(p_free_bucket_slot_bitset_sink)),
         m_bucket_count(p_bucket_count) {
       if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
         assert((m_bucket_count & (m_bucket_count - 1)) == 0);
       }
-      for (auto i = 0; i < m_bucket_count; ++i) {
-        m_key_sink[i] = 0;
-      }
-      for (auto i = 0; i < (m_bucket_count >> 6); ++i) {
-        m_free_bucket_slot_bitset_sink[i] = (BucketFreeBitMaskType)-1;
-      }
+      std::fill(m_key_sink, m_key_sink + m_bucket_count, (KeyType)0);
+      std::fill(m_free_bucket_slot_bitset_sink, m_free_bucket_slot_bitset_sink+p_bitset_value_count, (BucketFreeBitMaskType)-1);
+
     }
 
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end) noexcept -> void {
@@ -255,6 +316,7 @@ namespace tuddbs {
       return true;
     }
 
+    // auto check_for_empty_bucket(size_t const bucket_index, size_t offset, bool log = false) noexcept -> int {
     auto check_for_empty_bucket(size_t const bucket_index, size_t offset) noexcept -> int {
       // first we divde the bucket index by 64 to get the right bucket
       auto const bitmask_idx_base = bucket_index >> 6;
@@ -262,7 +324,15 @@ namespace tuddbs {
       auto const bitmask_idx_offset = bucket_index & 63;
       // now we load the bitmask
       auto const bitmask = m_free_bucket_slot_bitset_sink[bitmask_idx_base];
-      return (bitmask >> (bitmask_idx_base + offset)) & 1;
+      // if (log) {
+      //   std::cout << "\t\t\tBucket index: " << bucket_index << std::endl;
+      //   std::cout << "\t\t\tOffset      : " << offset << std::endl;
+      //   std::cout << "\t\t\tBitmask     : " << std::bitset<64>{bitmask} << std::endl;
+      //   std::cout << "\t\t\tBIB+Off     : " << bitmask_idx_offset + offset << std::endl;
+      //   std::cout << "\t\t\tBM>>(BIB+Off): " << std::bitset<64>{(bitmask>>(bitmask_idx_offset+offset))} << std::endl;
+      //   std::cout << "\t\t\tResult      : " << ((bitmask >> (bitmask_idx_offset + offset)) & 1) << std::endl;
+      // }
+      return (bitmask >> (bitmask_idx_offset + offset)) & 1;
     }
 
     auto probe_key(KeyType const key) noexcept -> bool {
@@ -279,13 +349,17 @@ namespace tuddbs {
           map_reg = tsl::loadu<SimdStyle, Idof>(m_key_sink + lookup_position);
         }
         auto const key_found_mask = tsl::equal_as_imask<SimdStyle, Idof>(map_reg, keys_reg);
-
         if (key_found_mask == 0) {
           // Key not found
+          // std::cout << "\t\tNot found" << std::endl;
           if (check_for_empty_buckets_in_range(lookup_position)) {
+            // std::cout << "\t\tEmpty bucket found --> not present" << std::endl;
+            // std::cout << "Key not found, but empty bucket in the range Sink [" << lookup_position << ":" << lookup_position + SimdStyle::vector_element_count() << "]." << std::endl;
             // Empty bucket found, key is not in the set
+            // std::cout << "Key " << key << " not found" << std::endl;
             return false;
           } else {
+            // std::cout << "Key not found and no empty bucket in the range Sink [" << lookup_position << ":" << lookup_position + SimdStyle::vector_element_count() << "]." << std::endl;
             lookup_position = normalizer<SimdStyle, HintSet, Idof>::normalize_value(
               lookup_position + SimdStyle::vector_element_count(), m_bucket_count);
           }
@@ -293,8 +367,17 @@ namespace tuddbs {
           // Key found
           auto const equal_key_offset = tsl::tzc<SimdStyle>(key_found_mask);
           if (check_for_empty_bucket(lookup_position, equal_key_offset) == 1) {
+            // throw std::runtime_error("Key found, but bucket was marked empty");
+            // std::cout << "Probing key " << key << std::endl;
+            // std::cout << "\tPosition: " << lookup_position << std::endl;
+            // std::cout << "\t\tFound" << std::endl;
+            // std::cout << "\t\tEMPTY!!!" << std::endl;
+            // check_for_empty_bucket(lookup_position, equal_key_offset, true);
+            // std::cout << "Found Key " << key << " in Sink [" << lookup_position+equal_key_offset << "] BUT bucket is empty." << std::endl; 
             return false;
           }
+          // std::cout << "Found key " << key << " in Sink [" << lookup_position+equal_key_offset << "]." << std::endl; 
+          // std::cout << "Found key" << key << std::endl;
           return true;
         }
       }
