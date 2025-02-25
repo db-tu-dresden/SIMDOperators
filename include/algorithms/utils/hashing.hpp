@@ -42,6 +42,16 @@ namespace tuddbs {
     }  // namespace hashing
   }    // namespace hints
 
+  template<class HintSet>
+  constexpr auto determine_bucket_count(size_t const estimated_unique_key_count, double const max_load = 0.6d) -> size_t {
+    auto const min_size = static_cast<size_t>(static_cast<double>(estimated_unique_key_count)*(1.0d + max_load));
+    if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
+      return std::bit_ceil<size_t>(min_size);
+    } else {
+      return min_size;
+    }
+  }
+
   template <tsl::VectorProcessingStyle SimdStyle, class HintSet, tsl::ImplementationDegreeOfFreedom Idof>
   class normalizer {
    public:

@@ -25,6 +25,7 @@
 #ifndef SIMDOPS_INCLUDE_DATASTRUCTURES_COLUMN_HPP
 #define SIMDOPS_INCLUDE_DATASTRUCTURES_COLUMN_HPP
 #include "iterable.hpp"
+#include "algorithms/utils/math.hpp"
 
 namespace tuddbs {
   template <tsl::TSLArithmetic T, class Allocator = T *(*)(size_t), class Deleter = void (*)(T *)>
@@ -584,6 +585,13 @@ namespace tuddbs {
       }
     }
   };
+
+
+
+  template<typename BitSetBaseType>
+  constexpr auto determine_bitset_base_type_count(size_t const required_slots) -> size_t {
+    return ((required_slots + (tuddbs::sizeof_b<BitSetBaseType>()-1)) & ~(tuddbs::sizeof_b<BitSetBaseType>()-1)) >> (tuddbs::log2_cexpr(tuddbs::sizeof_b<BitSetBaseType>()));
+  }
 }  // namespace tuddbs
 
 #endif

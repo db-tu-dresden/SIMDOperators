@@ -32,7 +32,7 @@
 #include "algorithms/dbops/join/hash_join_hints.hpp"
 #include "algorithms/utils/hashing.hpp"
 #include "iterable.hpp"
-#include "static/utils/type_concepts.hpp"
+// #include "static/utils/type_concepts.hpp"
 #include "tsl.hpp"
 
 namespace tuddbs {
@@ -244,6 +244,19 @@ namespace tuddbs {
     }
 
    public:
+    static auto calculate_bucket_count(size_t const key_count,
+                                       float const max_load = 0.6f) noexcept -> std::tuple<size_t, size_t> {
+      auto key_sink_min_size = (size_t)((float)key_count * (1.0f + max_load));
+      if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
+        auto const bucket_count = (1 << (int)std::ceil(std::log2(key_sink_min_size)));
+        auto const empty_bucket_bitset_count = bucket_count >> 6;
+        return std::make_tuple(bucket_count, empty_bucket_bitset_count);
+      } else {
+        auto const mutliple_of_64 = (key_sink_min_size + 63) & ~63;
+        return std::make_tuple(key_sink_min_size, mutliple_of_64 >> 6);
+      }
+    }
+
     auto get_used_bucket_count() const noexcept -> size_t { return m_used_bucket_count; }
 
     auto operator()(SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,

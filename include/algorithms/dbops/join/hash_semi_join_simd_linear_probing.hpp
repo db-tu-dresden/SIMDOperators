@@ -29,8 +29,8 @@
 #include "algorithms/dbops/join/hash_join_hints.hpp"
 #include "algorithms/utils/hashing.hpp"
 #include "iterable.hpp"
-#include "static/utils/preprocessor.hpp"
-#include "static/utils/type_concepts.hpp"
+// #include "static/utils/preprocessor.hpp"
+// #include "static/utils/type_concepts.hpp"
 #include "tsl.hpp"
 
 namespace tuddbs {
@@ -220,25 +220,6 @@ namespace tuddbs {
 
     auto unique_keys_count() const noexcept -> size_t {
       return key_count;
-    }
-    /**
-     * @brief
-     *
-     * @param key_count
-     * @param max_load
-     * @return std::tuple<size_t, size_t>  1st element: bucket_count, 2nd element: empty_bucket_bitset_count
-     */
-    static auto calculate_bucket_count(size_t const key_count,
-                                       float const max_load = 0.6f) noexcept -> std::tuple<size_t, size_t> {
-      auto key_sink_min_size = (size_t)((float)key_count * (1.0f + max_load));
-      if constexpr (has_hint<HintSet, hints::hashing::size_exp_2>) {
-        auto const bucket_count = (1 << (int)std::ceil(std::log2(key_sink_min_size)));
-        auto const empty_bucket_bitset_count = bucket_count >> 6;
-        return std::make_tuple(bucket_count, empty_bucket_bitset_count);
-      } else {
-        auto const mutliple_of_64 = (key_sink_min_size + 63) & ~63;
-        return std::make_tuple(key_sink_min_size, mutliple_of_64 >> 6);
-      }
     }
 
     Hash_Semi_Join_Build_RightSide_SIMD_Linear_Probing(KeySinkType p_key_sink,
