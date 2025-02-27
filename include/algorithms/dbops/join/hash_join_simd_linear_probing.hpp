@@ -27,6 +27,7 @@
 #include <cassert>
 #include <climits>
 #include <type_traits>
+#include <set>
 
 #include "algorithms/dbops/dbops_hints.hpp"
 #include "algorithms/dbops/join/hash_join_hints.hpp"
@@ -110,6 +111,19 @@ namespace tuddbs {
           m_original_positions_sink[i] = m_invalid_position;
         }
       }
+    }
+
+    auto getOrderedSet() {
+      std::set<std::pair<KeyType,PositionType>> mySet;
+      size_t pos = 0;
+      for ( auto it = m_used_bucket_sink; it != m_used_bucket_sink + m_bucket_count; ++it, ++pos) {
+        if ( *it != m_bucket_empty ) {
+          const auto key = m_key_sink[pos];
+          const auto val = m_original_positions_sink[pos];
+          mySet.emplace( key, val );
+        }
+      }
+      return mySet;
     }
 
     template <tsl::VectorProcessingStyle OtherSimdStlye, typename OtherPositionType, class OtherHintSet,
@@ -423,13 +437,13 @@ namespace tuddbs {
 
    public:
     auto operator()(SimdOpsIterable auto p_output_ht, SimdOpsIterable auto p_output_data, SimdOpsIterable auto p_data,
-                    SimdOpsIterableOrSizeT auto p_end) const noexcept -> size_t {
+                    SimdOpsIterableOrSizeT auto p_end, size_t position_offset = 0) const noexcept -> size_t {
       // Get the end of the data
       auto const end = iter_end(p_data, p_end);
 
       auto const all_false_mask = tsl::integral_all_false<SimdStyle, Idof>();
       size_t result_size = 0;
-      size_t current_pos = 0;
+      size_t current_pos = position_offset;
       bool not_found = false;
       for (; p_data != end; ++p_data, ++current_pos) {
         auto key = *p_data;
