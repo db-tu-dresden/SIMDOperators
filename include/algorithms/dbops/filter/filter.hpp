@@ -73,9 +73,10 @@ namespace tuddbs {
 
    public:
     template <class HS = HintSet>
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    enable_if_has_hint_t<HS, hints::operators::filter::count_bits, hints::intermediate::bit_mask> =
-                      {}) noexcept -> std::tuple<DataSinkType, size_t> {
+    auto operator()(
+      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+      enable_if_has_hint_t<HS, hints::operators::filter::count_bits, hints::intermediate::bit_mask> = {}) noexcept
+      -> std::tuple<DataSinkType, size_t> {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
 
@@ -139,10 +140,10 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(
-      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-      enable_if_has_hints_t<HS, hints::operators::filter::count_bits, hints::intermediate::dense_bit_mask> =
-        {}) noexcept -> std::tuple<DataSinkType, size_t> {
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+                    enable_if_has_hints_t<HS, hints::operators::filter::count_bits,
+                                          hints::intermediate::dense_bit_mask> = {}) noexcept
+      -> std::tuple<DataSinkType, size_t> {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -209,10 +210,11 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::bit_mask>,
-                                                           std::tuple<hints::operators::filter::count_bits>> =
-                      {}) noexcept -> DataSinkType {
+    auto operator()(
+      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+      enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::bit_mask>,
+                                             std::tuple<hints::operators::filter::count_bits>> = {}) noexcept
+      -> DataSinkType {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
 
@@ -257,10 +259,11 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::dense_bit_mask>,
-                                                           std::tuple<hints::operators::filter::count_bits>> =
-                      {}) noexcept -> DataSinkType {
+    auto operator()(
+      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+      enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::dense_bit_mask>,
+                                             std::tuple<hints::operators::filter::count_bits>> = {}) noexcept
+      -> DataSinkType {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -343,7 +346,7 @@ namespace tuddbs {
           current_positions_reg = tsl::add<ResultSimdStyle, Idof>(current_positions_reg, position_increment_reg);
         } else {
           for (size_t i = 0; i < SimdStyle::vector_element_count(); i += ResultSimdStyle::vector_element_count()) {
-            auto current_mask = tsl::extract_mask<ResultSimdStyle, Idof>(mask, i);
+            auto current_mask = tsl::extract_mask<ResultSimdStyle, SimdStyle, Idof>(mask, i);
             tsl::compress_store<ResultSimdStyle>(current_mask, result, current_positions_reg);
             result += tsl::mask_population_count<ResultSimdStyle>(current_mask);
             current_positions_reg = tsl::add<ResultSimdStyle, Idof>(current_positions_reg, position_increment_reg);
@@ -410,9 +413,10 @@ namespace tuddbs {
 
    public:
     template <class HS = HintSet>
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    enable_if_has_hint_t<HS, hints::operators::filter::count_bits, hints::intermediate::bit_mask> =
-                      {}) noexcept -> std::tuple<DataSinkType, size_t> {
+    auto operator()(
+      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+      enable_if_has_hint_t<HS, hints::operators::filter::count_bits, hints::intermediate::bit_mask> = {}) noexcept
+      -> std::tuple<DataSinkType, size_t> {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
 
@@ -477,10 +481,10 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(
-      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-      enable_if_has_hints_t<HS, hints::operators::filter::count_bits, hints::intermediate::dense_bit_mask> =
-        {}) noexcept -> std::tuple<DataSinkType, size_t> {
+    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+                    enable_if_has_hints_t<HS, hints::operators::filter::count_bits,
+                                          hints::intermediate::dense_bit_mask> = {}) noexcept
+      -> std::tuple<DataSinkType, size_t> {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -547,10 +551,11 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::bit_mask>,
-                                                           std::tuple<hints::operators::filter::count_bits>> =
-                      {}) noexcept -> DataSinkType {
+    auto operator()(
+      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+      enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::bit_mask>,
+                                             std::tuple<hints::operators::filter::count_bits>> = {}) noexcept
+      -> DataSinkType {
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
 
@@ -596,10 +601,11 @@ namespace tuddbs {
     }
 
     template <class HS = HintSet>
-    auto operator()(SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
-                    enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::dense_bit_mask>,
-                                                           std::tuple<hints::operators::filter::count_bits>> =
-                      {}) noexcept -> DataSinkType {
+    auto operator()(
+      SimdOpsIterable auto p_result, SimdOpsIterable auto p_data, SimdOpsIterableOrSizeT auto p_end,
+      enable_if_has_hints_mutual_excluding_t<HS, std::tuple<hints::intermediate::dense_bit_mask>,
+                                             std::tuple<hints::operators::filter::count_bits>> = {}) noexcept
+      -> DataSinkType {
       constexpr auto const bits_per_mask = sizeof(typename SimdStyle::imask_type) * CHAR_BIT;
       // Get the end of the SIMD iteration
       auto const batched_end = batched_iter_end<bits_per_mask>(p_data, p_end);
@@ -684,7 +690,7 @@ namespace tuddbs {
           current_positions_reg = tsl::add<ResultSimdStyle, Idof>(current_positions_reg, position_increment_reg);
         } else {
           for (size_t i = 0; i < SimdStyle::vector_element_count(); i += ResultSimdStyle::vector_element_count()) {
-            auto current_mask = tsl::extract_mask<ResultSimdStyle, Idof>(mask, i);
+            auto current_mask = tsl::extract_mask<ResultSimdStyle, SimdStyle, Idof>(mask, i);
             tsl::compress_store<ResultSimdStyle>(current_mask, result, current_positions_reg);
             result += tsl::mask_population_count<ResultSimdStyle>(current_mask);
             current_positions_reg = tsl::add<ResultSimdStyle, Idof>(current_positions_reg, position_increment_reg);

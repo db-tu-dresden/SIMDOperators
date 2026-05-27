@@ -1,8 +1,9 @@
-# create_test(
-# TARGET_NAME select_test
-# SRC_FILES algorithms/dbops/select_test.cpp
-# INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
-# )
+create_test(
+TARGET_NAME select_test
+SRC_FILES algorithms/dbops/select_test.cpp
+INC_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}
+LIBRARIES pthread
+)
 
 create_test(
   TARGET_NAME arithmetic_test_1col

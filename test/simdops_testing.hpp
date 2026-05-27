@@ -273,25 +273,25 @@ struct Select {
     return el_count;
   }
 };
-}  // namespace tuddbs
-#endif
-int main() {
-  auto out_mem = new int[130];
-  auto in_mem = new int[130];
-  for (size_t i = 0; i < 130; ++i) {
-    in_mem[i] = i;
-  }
 
-  using tester = simdops_tester<Runtime, int, Select>;
-  tester::run_tests_with_partitioning(
-    std::make_tuple(out_mem, in_mem, 130), 4,
-    [](size_t partition_count, size_t partition_id, auto out, auto in, size_t element_count) {
-      auto partition_offset = (element_count / partition_count) * partition_id;
-      auto partition_elements = ((element_count % partition_count) == 0) ? element_count / partition_count
-                                : (partition_id != (partition_count - 1))
-                                  ? element_count / partition_count
-                                  : (element_count / partition_count) + (element_count % partition_count);
-      return std::make_tuple(out + partition_offset, in + partition_offset, partition_elements);
-    },
-    std::make_tuple(12), 2);
-}
+#endif
+// int main() {
+//   auto out_mem = new int[130];
+//   auto in_mem = new int[130];
+//   for (size_t i = 0; i < 130; ++i) {
+//     in_mem[i] = i;
+//   }
+
+//   using tester = simdops_tester<Runtime, int, Select>;
+//   tester::run_tests_with_partitioning(
+//     std::make_tuple(out_mem, in_mem, 130), 4,
+//     [](size_t partition_count, size_t partition_id, auto out, auto in, size_t element_count) {
+//       auto partition_offset = (element_count / partition_count) * partition_id;
+//       auto partition_elements = ((element_count % partition_count) == 0) ? element_count / partition_count
+//                                 : (partition_id != (partition_count - 1))
+//                                   ? element_count / partition_count
+//                                   : (element_count / partition_count) + (element_count % partition_count);
+//       return std::make_tuple(out + partition_offset, in + partition_offset, partition_elements);
+//     },
+//     std::make_tuple(12), 2);
+// }
