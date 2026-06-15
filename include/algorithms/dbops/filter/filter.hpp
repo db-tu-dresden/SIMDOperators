@@ -340,7 +340,7 @@ namespace tuddbs {
         // register or integral type)
         auto mask = tsl::to_integral<SimdStyle>(CompareFun<SimdStyle, Idof>::apply(data_reg, m_predicate_reg));
 
-        if constexpr (sizeof(typename SimdStyle::base_type) == sizeof(ResultType)) {
+        if constexpr (SimdStyle::vector_element_count() == ResultSimdStyle::vector_element_count()) {
           tsl::compress_store<ResultSimdStyle>(mask, result, current_positions_reg);
           result += tsl::mask_population_count<SimdStyle>(mask);
           current_positions_reg = tsl::add<ResultSimdStyle, Idof>(current_positions_reg, position_increment_reg);
@@ -684,7 +684,7 @@ namespace tuddbs {
         auto mask = tsl::to_integral<SimdStyle>(
           CompareFun<SimdStyle, Idof>::apply(data_reg, m_lower_predicate_reg, m_upper_predicate_reg));
 
-        if constexpr (sizeof(typename SimdStyle::base_type) == sizeof(ResultType)) {
+        if constexpr (SimdStyle::vector_element_count() == ResultSimdStyle::vector_element_count()) {
           tsl::compress_store<ResultSimdStyle>(mask, result, current_positions_reg);
           result += tsl::mask_population_count<SimdStyle>(mask);
           current_positions_reg = tsl::add<ResultSimdStyle, Idof>(current_positions_reg, position_increment_reg);

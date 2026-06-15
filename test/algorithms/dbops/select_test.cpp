@@ -64,6 +64,8 @@ void init_positions(size_t* positions, size_t element_count) {
 template <class SimdStyle>
 bool dispatch_type() {
   using cpu_executor = tsl::executor<tsl::runtime::cpu>;
+  std::cerr << SimdStyle::vector_element_count() << std::endl;
+  std::cerr << std::bitset<64>((1 << SimdStyle::vector_element_count()) - 1) << std::endl;
   cpu_executor exec;
   auto predicate_true = 1;
   auto predicate_false = 0;
@@ -102,28 +104,28 @@ bool dispatch_type() {
   return all_good;
 }
 
-// TEMPLATE_TEST_CASE("Filter Equality, scalar", "[scalar]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
-//                    int32_t, int64_t) {
-//   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::scalar>>(); }
-// }
+TEMPLATE_TEST_CASE("Filter Equality, scalar", "[scalar]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
+                   int32_t, int64_t, float, double) {
+  SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::scalar>>(); }
+}
 
-// #ifdef TSL_CONTAINS_SSE
-// TEMPLATE_TEST_CASE("Filter Equality, sse", "[sse]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t,
-//                    int64_t) {
-//   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::sse>>(); }
-// }
-// #endif
+#ifdef TSL_CONTAINS_SSE
+TEMPLATE_TEST_CASE("Filter Equality, sse", "[sse]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t,
+                   int64_t, float, double) {
+  SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::sse>>(); }
+}
+#endif
 
 #ifdef TSL_CONTAINS_AVX2
 TEMPLATE_TEST_CASE("Filter Equality, avx2", "[avx2]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t,
-                   int64_t) {
+                   int64_t, float, double) {
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx2>>(); }
 }
 #endif
 
 #ifdef TSL_CONTAINS_AVX512
 TEMPLATE_TEST_CASE("Filter Equality, avx512", "[avx512]", uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t,
-                   int32_t, int64_t) {
+                   int32_t, int64_t, float, double) {
   SECTION(tsl::type_name<TestType>()) { dispatch_type<tsl::simd<TestType, tsl::avx512>>(); }
 }
 #endif
