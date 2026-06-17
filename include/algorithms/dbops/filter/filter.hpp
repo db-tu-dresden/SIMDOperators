@@ -36,12 +36,13 @@
 
 namespace tuddbs {
   template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,
-            class HintSet = OperatorHintSet<hints::intermediate::bit_mask>, typename Idof = tsl::workaround>
+            class HintSet = OperatorHintSet<hints::intermediate::bit_mask>, typename Idof = tsl::workaround,
+            typename _PositionType = size_t>
   class Generic_Filter {
    public:
     using SimdStyle = _SimdStyle;
-    using ResultType =
-      std::conditional_t<has_hint<HintSet, hints::intermediate::position_list>, size_t, typename SimdStyle::imask_type>;
+    using ResultType = std::conditional_t<has_hint<HintSet, hints::intermediate::position_list>, _PositionType,
+                                          typename SimdStyle::imask_type>;
     using DataSinkType = ResultType *;
     using base_type = typename SimdStyle::base_type;
     using result_base_type = typename SimdStyle::imask_type;
@@ -315,7 +316,6 @@ namespace tuddbs {
                     enable_if_has_hint_t<HS, hints::intermediate::position_list> = {}) noexcept -> DataSinkType {
       using ResultSimdStyle = typename SimdStyle::template transform_extension<ResultType>;
       auto current_positions_reg = tsl::custom_sequence<ResultSimdStyle>(start_position);
-
       auto const position_increment_reg = tsl::set1<ResultSimdStyle>(ResultSimdStyle::vector_element_count());
       // Get the end of the SIMD iteration
       auto const simd_end = simd_iter_end<SimdStyle>(p_data, p_end);
@@ -371,12 +371,13 @@ namespace tuddbs {
   };
 
   template <tsl::VectorProcessingStyle _SimdStyle, template <class, class> class CompareFun,
-            class HintSet = OperatorHintSet<hints::intermediate::bit_mask>, typename Idof = tsl::workaround>
+            class HintSet = OperatorHintSet<hints::intermediate::bit_mask>, typename Idof = tsl::workaround,
+            typename _PositionType = size_t>
   class Generic_Range_Filter {
    public:
     using SimdStyle = _SimdStyle;
-    using ResultType =
-      std::conditional_t<has_hint<HintSet, hints::intermediate::position_list>, size_t, typename SimdStyle::imask_type>;
+    using ResultType = std::conditional_t<has_hint<HintSet, hints::intermediate::position_list>, _PositionType,
+                                          typename SimdStyle::imask_type>;
     using DataSinkType = ResultType *;
     using base_type = typename SimdStyle::base_type;
     using result_base_type = typename SimdStyle::imask_type;
@@ -715,26 +716,26 @@ namespace tuddbs {
   };
 
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::intermediate::bit_mask>,
-            typename Idof = tsl::workaround>
-  using Filter_EQ = Generic_Filter<_SimdStyle, tsl::functors::equal, HintSet, Idof>;
+            typename Idof = tsl::workaround, typename PositionType = size_t>
+  using Filter_EQ = Generic_Filter<_SimdStyle, tsl::functors::equal, HintSet, Idof, PositionType>;
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::intermediate::bit_mask>,
-            typename Idof = tsl::workaround>
-  using Filter_NEQ = Generic_Filter<_SimdStyle, tsl::functors::nequal, HintSet, Idof>;
+            typename Idof = tsl::workaround, typename PositionType = size_t>
+  using Filter_NEQ = Generic_Filter<_SimdStyle, tsl::functors::nequal, HintSet, Idof, PositionType>;
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::intermediate::bit_mask>,
-            typename Idof = tsl::workaround>
-  using Filter_LT = Generic_Filter<_SimdStyle, tsl::functors::less_than, HintSet, Idof>;
+            typename Idof = tsl::workaround, typename PositionType = size_t>
+  using Filter_LT = Generic_Filter<_SimdStyle, tsl::functors::less_than, HintSet, Idof, PositionType>;
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::intermediate::bit_mask>,
-            typename Idof = tsl::workaround>
-  using Filter_GT = Generic_Filter<_SimdStyle, tsl::functors::greater_than, HintSet, Idof>;
+            typename Idof = tsl::workaround, typename PositionType = size_t>
+  using Filter_GT = Generic_Filter<_SimdStyle, tsl::functors::greater_than, HintSet, Idof, PositionType>;
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::intermediate::bit_mask>,
-            typename Idof = tsl::workaround>
-  using Filter_LE = Generic_Filter<_SimdStyle, tsl::functors::less_than_or_equal, HintSet, Idof>;
+            typename Idof = tsl::workaround, typename PositionType = size_t>
+  using Filter_LE = Generic_Filter<_SimdStyle, tsl::functors::less_than_or_equal, HintSet, Idof, PositionType>;
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::intermediate::bit_mask>,
-            typename Idof = tsl::workaround>
-  using Filter_GE = Generic_Filter<_SimdStyle, tsl::functors::greater_than_or_equal, HintSet, Idof>;
+            typename Idof = tsl::workaround, typename PositionType = size_t>
+  using Filter_GE = Generic_Filter<_SimdStyle, tsl::functors::greater_than_or_equal, HintSet, Idof, PositionType>;
 
   template <tsl::VectorProcessingStyle _SimdStyle, class HintSet = OperatorHintSet<hints::intermediate::bit_mask>,
-            typename Idof = tsl::workaround>
-  using Filter_BWI = Generic_Range_Filter<_SimdStyle, tsl::functors::between_inclusive, HintSet, Idof>;
+            typename Idof = tsl::workaround, typename PositionType = size_t>
+  using Filter_BWI = Generic_Range_Filter<_SimdStyle, tsl::functors::between_inclusive, HintSet, Idof, PositionType>;
 
 }  // namespace tuddbs
